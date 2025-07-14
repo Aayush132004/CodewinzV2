@@ -13,7 +13,7 @@ import ProblemPage from "./pages/ProblemPage";
 import Admincreate from "./components/Admincreate";
 import AdminDelete from "./components/AdminDelete";
 import AdminUpdate from "./components/AdminUpdate";
-import ProblemUpdate from "./components/problemUpdate";
+import ProblemUpdate from "./components/ProblemUpdate";
 import AdminVideo from "./components/AdminVideo";
 import AdminUpload from "./components/AdminUpload";
 import Setting from "./pages/Setting";
