@@ -1,0 +1,42 @@
+# Ignore node_modules in all subdirectories (frontend/backend)
+**/node_modules/
+
+# Ignore environment variables
+**/.env
+**/.env.*
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS system files
+.DS_Store
+Thumbs.db
+
+# Editor-specific folders
+.vscode/
+.idea/
+
+# Vite specific
+**/dist/
+**/.vite/
+**/.cache/
+
+# React specific
+**/build/
+
+# Testing coverage reports
+coverage/
+*.lcov
+
+# Optional lockfiles (uncomment if not tracking)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Mac trash
+.Trashes
