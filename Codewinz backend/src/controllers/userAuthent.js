@@ -35,7 +35,9 @@ const register=async(req,res)=>{
         //once registered create a token for user directly and can access home or else can generate token only when do login so after register login req to do,am giving direct access 
       const token= jwt.sign({id:user._id,emailId:emailId,role:"user"},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
       // console.log("check3");
-      res.cookie('token',token,{maxAge:60*60*1000});
+      res.cookie('token',token,{maxAge:60*60*1000, httpOnly: true,
+  secure: true,           // required on Render (HTTPS)
+  sameSite: "None"});
       const reply={
         firstName:user.firstName,
         emailId:user.emailId,
@@ -79,7 +81,11 @@ const login=async(req,res)=>{
             throw new Error("Invalid Credentials");
         //if passwords matched create jwt token and return it to user
          const token= jwt.sign({id:user._id,emailId:emailId,role:user.role},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
-      res.cookie('token',token,{maxAge:60*60*1000});
+      res.cookie('token',token,{maxAge:60*60*1000,
+         httpOnly: true,
+  secure: true,           // required on Render (HTTPS)
+  sameSite: "None"
+      });
       const reply={
         firstName:user.firstName,
         emailId:user.emailId,
@@ -144,7 +150,9 @@ try{
     throw new Error("This email is already registered. Please login using email and password.")
 // console.log("check2");
     const token= jwt.sign({id:user._id,emailId:email,role:user.role},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
-      res.cookie('token',token,{maxAge:60*60*1000});
+      res.cookie('token',token,{maxAge:60*60*1000, httpOnly: true,
+  secure: true,         
+  sameSite: "None"});
       const reply={
         firstName:user.firstName,
         emailId:user.emailId,
