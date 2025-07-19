@@ -21,7 +21,9 @@ app.use(express.json());
 app.use(cookieParser());
 
 
-
+app.get('/health', (req, res) => {
+  res.status(200).send("Backend is live");
+});
 
 //user Auth API
 app.use("/user",userAuth);
