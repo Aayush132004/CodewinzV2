@@ -14,8 +14,12 @@ const aiRouter=require("./src/routes/aiChatting");
 ///solving cors issue by allowing our frontend
 app.use(cors({
     origin:process.env.FRONTEND_URL,
-    credentials:true
+    credentials:true,
+     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"]
 }))
+
+
 //middleware for parsing body json and cookie json data to js obj
 app.use(express.json());
 app.use(cookieParser());
