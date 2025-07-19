@@ -5,6 +5,7 @@ const validate=require("../utils/validate");
 const redisClient = require("../config/redis");
 const Submission=require("../models/submission")
 const crypto=require("crypto");
+const nodemailer = require("nodemailer");
 //google-login
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -50,12 +51,13 @@ const register=async(req,res)=>{
         message:"Successfully Registered"
       });
     }
-    catch(err){
-    console.log("check4");
-    res.status(400).send("Error:"+err.message);
-    }
+ catch(err){
+  // console.log(err.message);
+  res.status(401).json({
+    message:err.message 
+});
 }
-
+}
 
 const login=async(req,res)=>{
     try{
@@ -100,9 +102,12 @@ const login=async(req,res)=>{
       });
 
     }
-    catch(e){
-     res.status(400).send("Error"+e.message);
-    }
+   catch(err){
+  // console.log(err.message);
+  res.status(401).json({
+    message:err.message 
+});
+}
 }
 
 const googleLogin=async(req,res)=>{
@@ -170,10 +175,13 @@ try{
 
 }
 catch(err){
-  res.status(401).send(err.message);
-}
-}
+  // console.log(err.message);
+  res.status(401).json({
+    message:err.message 
+});
 
+}
+}
 const logout=async(req,res)=>{
   try{
     //validate the token if its invalid only means already logged out
@@ -224,4 +232,97 @@ const deleteProfile=async(req,res)=>{
  
  }
 }
-module.exports={register,login,logout,adminRegister,deleteProfile,googleLogin}
+
+
+const sendMail=async(req,res)=>{
+  // console.log(req.body.emailId);
+  try{
+  const emailId=req.body.emailId;
+  //sending mail to this email to login along with mail a low expiry token 
+  const user=await User.findOne({emailId});
+  if(!user)
+    throw new Error("Email Id Is Not Registered");
+
+  const token= jwt.sign({id:user._id,emailId:emailId,role:user.role},process.env.JWT_KEY,{expiresIn:5*60})//expiry setting 5min of token 
+  //sending this attacked to mail 
+
+ 
+
+// Create a test account or replace with real credentials.
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  port: 587,
+  secure: false, // true for 465, false for other ports
+  auth: {
+    user: process.env.SENDER_MAIL,
+    pass: process.env.SENDER_MAIL_PASS,
+  },
+});
+
+// Wrapp in an async IIFE so we can use await.
+(async () => {
+ const info = await transporter.sendMail({
+  from: "CODEWINZ",
+  subject: "Login using mail",
+  to:emailId,
+  html: `
+    <div style="font-family: 'Inter', sans-serif; background-color: #f3f4f6; padding: 32px; border-radius: 12px; max-width: 600px; margin: auto; color: #1f2937;">
+      <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 12px; color: #111827;">
+        Login to CODEWINZ
+      </h1>
+      <p style="font-size: 16px; margin-bottom: 24px;">
+        We received a request to login to your CODEWINZ account. Click the button below to proceed.
+        This link is valid for <strong>5 minutes</strong>.
+      </p>
+
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${process.env.FRONTEND_URL}/magic-login/${token}"
+           style="background-color: #4f46e5; color: white; padding: 12px 24px; font-size: 16px; font-weight: 500; text-decoration: none; border-radius: 8px; display: inline-block;">
+          🔓 Login Now
+        </a>
+      </div>
+
+      <p style="font-size: 14px; color: #6b7280;">
+        If you didn’t request this, you can safely ignore this email.
+      </p>
+
+      <div style="margin-top: 32px; text-align: center; font-size: 12px; color: #9ca3af;">
+        © ${new Date().getFullYear()} CODEWINZ. All rights reserved.
+      </div>
+    </div>
+  `
+});
+
+
+  console.log("Message sent:", info.messageId);
+})();
+
+  }
+catch(err){
+  res.status(500).json({
+    message:err.message,
+  })
+}
+
+
+}
+const verifyMail=async(req,res)=>{
+  try{
+  const check_token=req.body.token;
+ const payload=jwt.verify(check_token,process.env.JWT_KEY);
+ const {id}=payload;
+  const user=await User.findById(id);
+   const token= jwt.sign({id:user._id,emailId:user.emailId,role:user.role},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
+      res.cookie('token',token,{maxAge:60*60*1000,
+         httpOnly: true,
+  secure: true,           // required on Render (HTTPS)
+  sameSite: "None"
+      });
+res.status(200).send("Successfully verified");
+    }
+    catch(err){
+      res.status(200).json({message:"Token is Invalid/Expired"});
+      console.log("error message")
+    }
+}
+module.exports={register,login,logout,adminRegister,deleteProfile,googleLogin,sendMail,verifyMail}

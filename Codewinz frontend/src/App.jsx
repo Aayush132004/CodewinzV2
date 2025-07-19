@@ -17,6 +17,7 @@ import ProblemUpdate from "./components/ProblemUpdate";
 import AdminVideo from "./components/AdminVideo";
 import AdminUpload from "./components/AdminUpload";
 import Setting from "./pages/Setting";
+import Magic_Link from "./components/Magic_Link";
 
 
 function App() {
@@ -94,6 +95,7 @@ else{
           <Route path='/admin/video' element={isAuthenticated&&user?.role=='admin'?<AdminVideo/>:<Navigate to='/'/>}></Route>
           <Route path='/admin/video/upload/:problemId' element={isAuthenticated&&user?.role=='admin'?<AdminUpload/>:<Navigate to='/'/>}></Route>
            <Route path='/setting' element={isAuthenticated?<Setting/>:<Navigate to='/'/>}></Route>
+          <Route path='/magic-login/:token' element={<Magic_Link/>}> </Route>
         
         
       </Routes>

@@ -222,6 +222,7 @@ const {register,handleSubmit,formState: { errors },} = useForm({resolver:zodReso
         {/* Sign In Link - OUTSIDE the form now */}
         <p className="text-center text-blue-100 mt-8">
           Already have an account?{" "}
+          <div className='flex flex-col'>
           <button
             type="button"
             onClick={() => navigate("/login")}
@@ -229,6 +230,13 @@ const {register,handleSubmit,formState: { errors },} = useForm({resolver:zodReso
           >
             Sign in
           </button>
+          {error&&(
+                <span className="text-red-500 text-sm mt-2">
+                  {error}
+                  
+                </span>
+              )}
+        </div>
         </p>
       </div>
     </div>

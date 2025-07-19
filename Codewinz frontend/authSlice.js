@@ -41,7 +41,8 @@ export const googleLogin=createAsyncThunk(
       
            } 
            catch(err){
-                return rejectWithValue(err.response?.data || err.message);
+                 console.log(err);  
+                return rejectWithValue(err.response.data);
            }
     }
         
@@ -138,7 +139,7 @@ const authSlice=createSlice({
         })
         .addCase(checkAuth.rejected,(state,action)=>{
             state.loading=false;
-            state.error=action.payload?.message||'Something went wrong';
+          ;
             state.isAuthenticated=false;
             state.user=null;
         })
@@ -177,7 +178,7 @@ const authSlice=createSlice({
              state.loading=false;
             state.isAuthenticated=false;
             state.user=null;
-            state.error=action.payload?.response||"something went wrong";
+            state.error=action.payload?.message||"something went wrong";
         })
         
 

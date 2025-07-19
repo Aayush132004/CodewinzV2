@@ -18,7 +18,11 @@ const ProblemPage = () => {
   const [activeRightTab, setActiveRightTab] = useState('code');
   const editorRef = useRef(null);
   let {problemId}  = useParams();
-  
+
+  const getBackendLanguage=(lang)=>{
+    if(lang==='cpp') return 'c++';
+    else return lang;
+  }
 
   const { handleSubmit } = useForm();
  //first bringing the problem from its id all its detail
@@ -63,7 +67,16 @@ const ProblemPage = () => {
   // Update code when language changes
   useEffect(() => {
     if (problem) {
-      const initialCode = problem.startCode.find(sc => sc.language === selectedLanguage)?.initialCode || '';
+      const initialCode = problem.startCode.find((sc) => {
+        if (sc.language == "c++" && selectedLanguage == 'cpp')
+        return true;
+        else if (sc.language == "java" && selectedLanguage == 'java')
+        return true;
+        else if (sc.language == "javascript" && selectedLanguage == 'javascript')
+        return true;
+
+        return false;
+      })?.initialCode || '';
       setCode(initialCode);
     }
   }, [selectedLanguage, problem]);
@@ -84,13 +97,14 @@ const ProblemPage = () => {
     setLoading(true);
     setRunResult(null);
     
+  
     try {
       // console.log("hi");
       const response = await axiosClient.post(`/submission/run/${problemId}`, {
         code,
-        language: selectedLanguage
+        language:  getBackendLanguage(selectedLanguage)
       });
-      // console.log(response.data);
+      console.log(response.data);
       setRunResult(response.data);
       setLoading(false);
       setActiveRightTab('testcase');
@@ -113,7 +127,7 @@ const ProblemPage = () => {
     try {
         const response = await axiosClient.post(`/submission/submit/${problemId}`, {
         code:code,
-        language: selectedLanguage
+         language:  getBackendLanguage(selectedLanguage)
       });
 
        setSubmitResult(response.data);
@@ -160,7 +174,7 @@ return (
     <div className="w-1/2 flex flex-col border-r border-base-300 bg-white/5 backdrop-blur-md shadow-inner">
       {/* Left Tabs */}
       <div className="tabs tabs-lifted px-6 py-3 border-b border-base-300">
-        {['description', 'editorial', 'solutions', 'submissions','chatAI'].map((tab) => (
+        {['description', 'video Solution', 'solutions', 'submissions','chatAI'].map((tab) => (
           <button
             key={tab}
             className={`tab transition duration-200 ease-in-out text-md tracking-wide font-medium px-4 ${activeLeftTab === tab ? 'tab-active text-primary border-b-2 border-primary' : 'hover:text-primary/80'}`}
@@ -205,7 +219,7 @@ return (
               </div>
             )}
 
-            {activeLeftTab === 'editorial' && (
+            {activeLeftTab === 'video Solution' && (
               <div className="prose prose-sm max-w-none text-base-content/80 whitespace-pre-wrap">
                 <h2 className="text-xl font-semibold mb-4">Editorial</h2>
                 <Editorial secureUrl={problem.secureUrl} thumbnailUrl={problem.thumbnailUrl} duration={problem.duration}/>
@@ -277,7 +291,7 @@ return (
                     className={`btn btn-sm rounded-full ${selectedLanguage === lang ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => handleLanguageChange(lang)}
                   >
-                    {lang === 'cpp' ? 'C++' : lang.charAt(0).toUpperCase() + lang.slice(1)}
+                    {lang === 'cpp' ? 'c++' : lang.charAt(0).toUpperCase() + lang.slice(1)}
                   </button>
                 ))}
               </div>

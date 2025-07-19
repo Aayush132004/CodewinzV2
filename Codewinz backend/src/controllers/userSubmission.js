@@ -3,6 +3,7 @@ const Submission=require("../models/submission");
 const {getLanguageById,submitBatch,submitToken}=require("../utils/problemUtility");
 const submitCode=async(req,res)=>{
 try{
+    console.log(res)
     //userId through its middleware
     const userId=req.result._id;
     //problemId sending via param

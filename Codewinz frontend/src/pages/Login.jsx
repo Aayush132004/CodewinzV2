@@ -6,6 +6,7 @@ import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import { loginUser } from "../../authSlice";
 import Googlelogin from "../components/Googlelogin"
+import axiosClient from "../../utils/axiosClient";
 
 const signupSchema = z.object({
   emailId: z.email("Invalid EmailId"),
@@ -17,6 +18,8 @@ const signupSchema = z.object({
 function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [mailerror,setMailerror]=useState(null);
+  const [timer,setTimer]=useState(0);
 
   const { isAuthenticated, loading, error } = useSelector(
     (state) => state.auth
@@ -163,19 +166,88 @@ function Login() {
             <Googlelogin/>
             {/* <button className="btn btn-circle btn-outline border-blue-500 hover:bg-blue-600 hover:border-blue-600 transition-all duration-300"> */}
               {/* Mail */}
-              {/* <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+              <button  disabled={loading} onClick={()=>document.getElementById('my_modal_3').showModal()} className="btn btn-circle btn-outline border-blue-500 hover:bg-red-500 hover:border-red-500 transition-all duration-300">
+              <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M4 4h16a2 2 0 012 2v1.5l-10 6.5-10-6.5V6a2 2 0 012-2zm0 4.75l10 6.5 10-6.5V18a2 2 0 01-2 2H6a2 2 0 01-2-2V8.75z" />
               </svg>
-            </button> */}
+              </button>
+               <dialog id="my_modal_3" className="modal">
+  <div className="modal-box">
+    <button
+      type="button"
+      className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+      onClick={() => document.getElementById("my_modal_3").close()}
+    >
+      ✕
+    </button>
+
+    <p className="mb-4">Enter Your Registered Gmail ID</p>
+
+    <form onSubmit={async (e)=>{
+      e.preventDefault();
+      // alert(e.target[0].value);
+      // console.log(e);
+      const data=e.target[0].value;
+    try{
+         setTimer(60);
+     const interval= setInterval(() => {
+      setTimer((prev)=>{
+        if(prev===0){
+          clearInterval(interval);
+          return 0;
+        }
+       else{
+        return prev-1;
+       }
+      });
+     
+        
+    }, 1000);
+    
+     const res= await axiosClient.post("/user/mailLogin",{emailId:data});
+     console.log(res);
+    }
+    catch(err){
+      console.log(err);
+       setMailerror(err.response.data.message);
+    }
+
+     
+      //on submitting send to backend there check if already registered or not 0
+    }}>
+      <input
+        type="email" required
+        className="input input-bordered w-full mb-4"
+        placeholder="Enter your Gmail ID"
+      />
+      <div className="flex flex-col">
+      {mailerror&&<span className="text-red-500 text-sm mt-2">
+                  {mailerror}
+        </span>}
+      <button type="submit" disabled={timer===0?false:true} className="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white ">{timer===0?'Send Link':'Link Send!You Can Try Again in '+timer+'sec'}</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+            
           
           </div>
 
           {/* Sign Up Link */}
-          <p className="text-center text-blue-100 mt-8">
+          <p className="text-center text-blue-100 mt-8 ">
             Don’t have an account?{" "}
+            <div className="flex flex-col">
             <button onClick={()=>{navigate('/signup')}} className="link link-info font-semibold">
               Sign up
             </button>
+            {error&&(
+                <span className="text-red-500 text-sm mt-2">
+                  {error}
+                </span>
+               
+              )}
+              </div>
           </p>
         </div>
       </div>

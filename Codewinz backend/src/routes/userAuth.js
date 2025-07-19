@@ -2,7 +2,7 @@ const express=require("express");
 const authRouter=express.Router();
 const userMiddleware=require("../middleware/userMiddleware")
 const adminMiddleware=require("../middleware/userMiddleware")
-const {register,login,logout,adminRegister,deleteProfile,googleLogin}=require("../controllers/userAuthent");
+const {register,login,logout,adminRegister,deleteProfile,googleLogin,sendMail,verifyMail}=require("../controllers/userAuthent");
 const problems=require("../models/problem")
 //Register
 //Login{admin or normal user}
@@ -12,6 +12,10 @@ authRouter.post("/register",register);
 authRouter.post("/login",login);
 //google login
 authRouter.post("/googleLogin",googleLogin);
+//mail login
+authRouter.post("/mailLogin",sendMail);
+authRouter.post("/verifyMail",verifyMail);
+//mail login get req to access //no need i will send to login only direct 
 
 //before logout and all checking weather the jwt we have now is valid or not 
 authRouter.post("/logout",userMiddleware,logout);
