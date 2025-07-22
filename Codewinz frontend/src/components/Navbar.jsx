@@ -13,9 +13,13 @@ const Navbar = () => {
       <div className=" fixed top-0 mb navbar px-10 py-4 bg-slate-800 shadow-md min-h-[72px] text-white">
         {/* Left: Site Name */}
         <div className="flex-1">
-          <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+          <div className='flex'>
+            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
             CodeWinz
           </span>
+          <img src="/logo.png" className="h-10 w-15 object-cover"/>
+          </div>
+          
         </div>
 
         {/* Right: Profile Avatar + Dropdown */}

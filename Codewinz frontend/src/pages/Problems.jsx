@@ -18,6 +18,7 @@ const[filter,setFilter]=useState({
 });
 //state for pagination 
 const [page,setPage]=useState(1);
+const [load,setLoad]=useState(true);
 const[totalPage,setTotalPage]=useState();
 
 
@@ -35,6 +36,7 @@ useEffect(()=>{
         setProblems(response.data.allProblems);
         setPage(response.data.currentPage);
         setTotalPage(response.data.totalPage);
+         setLoad(false);
        
         }
    
@@ -47,10 +49,11 @@ useEffect(()=>{
       
     const fetchSolvedProblems=async()=>{
         try{
-             
+            
         const response=await axiosClient.get("/problem/problemSolvedByUser");
         //setting these fetched problem
         setSolvedProblem(response.data);
+         setLoad(false);
         }
 
       catch(err){
@@ -58,6 +61,7 @@ useEffect(()=>{
         }
 
         //if user exists than only solved problem
+       
      
     }
     fetchProblems();
@@ -98,7 +102,12 @@ const filteredProblems=problems.filter(problems=>{
            <Filter option={difficultyProp} field="difficulty" state={{setFilter,filter}}/>
            <Filter option={tagProp} field="tag" state={{setFilter,filter}}/>
         </div>
+        
           {/* simply displaying filteredProblems*/}
+    
+       { load?<div className='flex justify-center items-center h-screen'><span className="loading loading-spinner loading-lg text-primary"></span></div>:
+       <div className='flex justify-center items-center'>
+       <div className='w-[70%]'>
        <div className='flex justify-between items-center flex-col gap-5 mt-15'>
             {
                  filteredProblems.map((problem,i)=>{
@@ -111,10 +120,14 @@ const filteredProblems=problems.filter(problems=>{
             }
 
        </div>
-           {/* pagination taki specific data load ho */}
-        <div className=' absolute left-[45%] bottom-3'>
-         <Pagination option={{page,setPage,totalPage}}/>
-        </div>
+       </div>
+       </div>
+      }
+         {/* pagination taki specific data load ho */}
+<div className="w-full flex justify-center mt-8">
+  <Pagination option={{ page, setPage, totalPage }} />
+</div>
+
         
     </div>
   )

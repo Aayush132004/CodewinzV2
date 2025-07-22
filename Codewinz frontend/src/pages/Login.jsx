@@ -48,10 +48,13 @@ function Login() {
         <div className="w-full max-w-md bg-[#0f172a] rounded-2xl shadow-2xl p-8 space-y-6 border border-blue-800">
           {/* Header */}
           <div className="text-center space-y-2">
-            <h1 className="text-5xl font-black text-blue-400 tracking-tight">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse">
-                CodeWinz
-              </span>
+            <h1 className="text-5xl font-black flex justify-center items-center  text-blue-400 tracking-tight">
+              
+              <img src="/logo.png" className="h-40 object-cover"/>
+              {/* <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse">
+                CodeWinz  
+              </span> */}
+             
             </h1>
             <p className="text-base text-blue-100">
               Welcome back! Please login to your account.

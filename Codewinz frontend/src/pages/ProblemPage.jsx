@@ -19,6 +19,15 @@ const ProblemPage = () => {
   const editorRef = useRef(null);
   let {problemId}  = useParams();
 
+const [selectedTheme, setSelectedTheme] = useState('vs-dark');
+
+
+
+const handleThemeChange = (theme)=> {
+  setSelectedTheme(theme);
+};
+
+
   const getBackendLanguage=(lang)=>{
     if(lang==='cpp') return 'c++';
     else return lang;
@@ -162,8 +171,8 @@ const ProblemPage = () => {
 
   if (loading && !problem) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <span className="loading loading-spinner loading-lg"></span>
+      <div className="flex bg-gradient-to-br from-[#0f172a] via-[#1e253b] to-[#1e293b] justify-center items-center min-h-screen">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
       </div>
     );
   }
@@ -284,26 +293,52 @@ return (
         {activeRightTab === 'code' && (
           <div className="flex-1 flex flex-col">
             <div className="flex justify-between items-center p-4 bg-base-100 border-b border-base-300">
-              <div className="flex gap-2">
-                {['javascript', 'java', 'cpp'].map((lang) => (
-                  <button
-                    key={lang}
-                    className={`btn btn-sm rounded-full ${selectedLanguage === lang ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => handleLanguageChange(lang)}
-                  >
-                    {lang === 'cpp' ? 'c++' : lang.charAt(0).toUpperCase() + lang.slice(1)}
-                  </button>
-                ))}
-              </div>
+            <div className="flex gap-4 items-center w-full justify-between">
+  {/* Language Dropdown */}
+  <div className="relative">
+    <select
+      className="select select-sm bg-gray-800 text-white border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+      value={selectedLanguage}
+      onChange={(e) => handleLanguageChange(e.target.value)}
+    >
+      <option value="javascript">JavaScript</option>
+      <option value="java">Java</option>
+      <option value="cpp">C++</option>
+    </select>
+  </div>
+
+  {/* Theme Dropdown */}
+  <div className="relative">
+    <select
+      className="select select-sm bg-gray-800 text-white border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+      value={selectedTheme}
+      onChange={(e) => handleThemeChange(e.target.value)}
+    >
+      {[
+  'vs-dark',     // Dark theme (default dark)
+  'vs-light',    // Light theme (default light)
+  'hc-black',    // High-contrast dark theme
+  'hc-light'     // High-contrast light theme
+]
+.map((theme) => (
+        <option key={theme} value={theme}>
+          {theme.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
+
             </div>
-            <div className="h-[80%]">
+            <div className="h-[80%] rounded-2xl border border-[#2c3e50] bg-[#0f172a] shadow-md overflow-hidden">
               <Editor
                 height="100%"
                 language={getLanguageForMonaco(selectedLanguage)}
                 value={code}
                 onChange={handleEditorChange}
                 onMount={handleEditorDidMount}
-                theme="vs-dark"
+               theme={selectedTheme}
+
                 options={{
                   fontSize: 14,
                   minimap: { enabled: false },

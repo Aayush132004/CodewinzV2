@@ -52,10 +52,11 @@ const {register,handleSubmit,formState: { errors },} = useForm({resolver:zodReso
       <div className="w-full max-w-md space-y-5 bg-[#0f172a] p-8 rounded-2xl shadow-2xl border border-blue-800">
 
         {/* Header */}
-        <h1 className="text-4xl font-bold text-center text-blue-400 tracking-wide">
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse">
+        <h1 className="text-4xl font-bold flex justify-center items-center text-center text-blue-400 tracking-wide">
+          {/* <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse">
             CodeWinz
-          </span>
+          </span> */}
+           <img src="/logo.png" className="h-40 object-cover"/>
         </h1>
 
         {/* Form starts here */}

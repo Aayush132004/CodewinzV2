@@ -12,7 +12,7 @@ function ProblemCard({problem,solvedProblem}) {
   };
 
   return (
-    <div onClick={()=>{navigate(`/problem/${problem._id}`)}} className="flex items-center justify-between gap-6 bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-xl shadow-lg border border-slate-700 hover:border-blue-500 hover:shadow-blue-500/20 transition-all duration-200 w-5xl ">
+    <div onClick={()=>{navigate(`/problem/${problem._id}`)}} className="flex items-center justify-between gap-6 bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-xl shadow-lg border border-slate-700 hover:border-blue-500 hover:shadow-blue-500/20 transition-all duration-200 w-full ">
       
       {/* Left: Title + Tags */}
       <div className="flex flex-col">
