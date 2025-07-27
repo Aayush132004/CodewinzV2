@@ -33,6 +33,17 @@ const userSchema=new Schema({
         min:6,
         max:80,
     },
+    // In your user schema
+heatmap: {
+  type: Map,
+  of: Number,
+  default: {}
+},
+topics: {
+  type: Map,
+  of: Number,
+  default: {}
+},
     role:{
         type:String,
         enum:['user','admin'],
@@ -63,7 +74,7 @@ const userSchema=new Schema({
     },
     loginStreak: {
   type: Number,
-  default: 1,
+  default: 0,
     },
 lastLoginDate: {
   type: Date,

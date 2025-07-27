@@ -11,6 +11,7 @@ const cors=require("cors");
 const videoRouter=require('./src/routes/videoRouter');
 const profileRouter=require("./src/routes/profile");
 const aiRouter=require("./src/routes/aiChatting");
+const contestRouter=require("./src/routes/contestRouter");
 ///solving cors issue by allowing our frontend
 app.use(cors({
     origin:process.env.FRONTEND_URL,
@@ -36,6 +37,7 @@ app.use("/submission",submit);
 app.use("/video",videoRouter);
 app.use("/profile",profileRouter);
 app.use("/ai",aiRouter);
+app.use("/contest",contestRouter);
 
 
 

@@ -2,3 +2,45 @@
 @plugin "daisyui" {
   themes: light --default, dark --prefersdark, cupcake;
 }
+/* Custom CSS Animations for ContestResult.jsx */
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-down {
+  animation: fade-in-down 0.7s ease-out forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.7s ease-out forwards;
+}
+
+/* Subtle pulse for key icons/elements */
+@keyframes pulse-slow {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s infinite ease-in-out;
+}
+
+/* For the background nebula/gradient movement */
+@keyframes subtle-move {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+.animate-subtle-move {
+  animation: subtle-move 40s linear infinite alternate;
+}
+
+/* Added for responsive font sizing adjustments if needed for mobile */
+@media (max-width: 640px) {
+  .text-4xl-sm-2xl {
+    font-size: 2rem; /* text-2xl */
+  }
+}

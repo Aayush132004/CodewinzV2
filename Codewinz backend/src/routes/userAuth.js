@@ -34,6 +34,10 @@ const reply={
   profile:user.profile.url,
   questionsSolved:user.problemSolved.length,
   totalQuestions: await problems.countDocuments({}),
+  loginStreak:user.loginStreak,
+  heatmap:user.heatmap,
+  topics:user.topics,
+   problemSolved:req.result?.problemSolved,
 
 }
 res.status(200).send(reply);
@@ -49,6 +53,8 @@ authRouter.get("/check",userMiddleware,async(req,res)=>{
     _id:req.result._id,
     role:req.result.role,
     profile:req.result?.profile?.url,
+    streak:req.result?.loginStreak,
+     problemSolved:req.result?.problemSolved,
   }
   res.status(200).json({
     user:reply,

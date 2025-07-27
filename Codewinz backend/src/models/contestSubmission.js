@@ -1,7 +1,7 @@
 const mongoose=require("mongoose");
 const {Schema}=mongoose;
 
-const submissionSchema=new Schema({
+const contestSubmissionSchema=new Schema({
     userId:{
         type:Schema.Types.ObjectId,
         ref:'user',
@@ -11,6 +11,17 @@ const submissionSchema=new Schema({
          type:Schema.Types.ObjectId,
         ref:'problem',
         required:true
+    },
+    contestId:{
+         type:Schema.Types.ObjectId,
+        ref:'contest',
+        required:true
+    },
+    score:{
+        type:Number,
+        enum:[100,50,20,0],
+        default:0,
+        required:true,
     },
     code:{
         type:String,
@@ -23,6 +34,7 @@ const submissionSchema=new Schema({
     },
     status:{
         type:String,
+        enum:["pending","accepted","wrong","error"],
         default:"pending",
         index:true,
     },
@@ -48,9 +60,9 @@ const submissionSchema=new Schema({
     }
 },{timestamps:true});
 
-submissionSchema.index({userId:1,problemId:1});
+contestSubmissionSchema.index({userId:1,problemId:1,contestId:1});
 
  
-const Submission=mongoose.model("submission",submissionSchema);
+const ContestSubmission=mongoose.model("contestSubmission",contestSubmissionSchema);
 
-module.exports=Submission;
+module.exports=ContestSubmission;
