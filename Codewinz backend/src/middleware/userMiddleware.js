@@ -24,9 +24,11 @@ const userMiddleware=async(req,res,next)=>{
 
         //if token not in blocklist means can perform operations on it hence pass it details to further checkpoints by binding in req
         req.result=result;
+    
         next();
     }
     catch(err){
+       
         res.status(401).send("Error:"+err.message);
     }
 }

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { loginUser } from "../../authSlice";
 import Googlelogin from "../components/Googlelogin"
 import axiosClient from "../../utils/axiosClient";
-
+import VoidBackground from "../components/VoidBackground";
 const signupSchema = z.object({
   emailId: z.email("Invalid EmailId"),
   password: z.string().min(8, "Password Should Contain atleast 8 characters"),
@@ -44,8 +44,9 @@ function Login() {
   
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e293b] flex items-center justify-center p-4 font-sans text-white">
-        <div className="w-full max-w-md bg-[#0f172a] rounded-2xl shadow-2xl p-8 space-y-6 border border-blue-800">
+     <VoidBackground/>
+      <div className="min-h-screen  bg-gradient-to-br from-[#0f172a] to-[#1e293b] flex items-center justify-center p-4 font-sans text-white">
+        <div className="w-full max-w-md z-10 relative bg-[#0f172a] rounded-2xl shadow-2xl p-8 space-y-6 border border-blue-800">
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-5xl font-black flex justify-center items-center  text-blue-400 tracking-tight">

@@ -8,9 +8,9 @@ const Navbar = () => {
      const dispatch=useDispatch();
      const navigate=useNavigate();
      const {isAuthenticated,user}=useSelector((state)=>state.auth)
-    //  console.log("user",user.profile)
+     console.log("user",user.profile)
   return (
-      <div className=" fixed top-0 mb navbar px-10 py-4 bg-slate-800 shadow-md min-h-[72px] text-white">
+      <div className=" fixed z-100 top-0 mb navbar px-10 py-4 bg-slate-800 shadow-md min-h-[72px] text-white">
         {/* Left: Site Name */}
         <div className="flex-1">
           <div className='flex'>
@@ -23,6 +23,14 @@ const Navbar = () => {
         </div>
 
         {/* Right: Profile Avatar + Dropdown */}
+         { (user.role==='admin'&&
+      <button
+        onClick={() => navigate('/admin')}
+        className="absolute z-100 top-6 right-30  btn btn-sm btn-outline border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black transition"
+      >
+        Admin Panel
+      </button>
+    )}
         <div className="flex gap-4 items-center">
 
           {/* Profile Dropdown */}
@@ -35,7 +43,7 @@ const Navbar = () => {
               <div className="w-12 rounded-full ring ring-cyan-400 ring-offset-slate-800 ring-offset-2">
                 <img
                   alt="User Avatar"
-                  src={user.profile}
+                  src={user?.profile}
                 />
               </div>
             </div>

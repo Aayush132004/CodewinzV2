@@ -18,8 +18,14 @@ import AdminVideo from "./components/AdminVideo";
 import AdminUpload from "./components/AdminUpload";
 import Setting from "./pages/Setting";
 import Magic_Link from "./components/Magic_Link";
-
-
+import CreateContest from "./pages/createContest";
+import Contests from "./pages/Contests";
+import ContestProblem from "./pages/ContestProblem"
+import ContestProblemPage from "./pages/ContestProblemPage"
+import ContestResult from "./pages/ContestResult"
+import ContestSubmission from "./pages/ContestSubmission";
+import CommunityChat from "./components/CommunityChat"
+import CollaborativeEditor from "./components/CollaborativeEditor";
 function App() {
   //code for check auth then redirect user to login or home direct req to call checkAuth extra reducer and then redirect 
  const {isAuthenticated,loading,user}=useSelector((state)=>state.auth);
@@ -96,7 +102,14 @@ else{
           <Route path='/admin/video/upload/:problemId' element={isAuthenticated&&user?.role=='admin'?<AdminUpload/>:<Navigate to='/'/>}></Route>
            <Route path='/setting' element={isAuthenticated?<Setting/>:<Navigate to='/'/>}></Route>
           <Route path='/magic-login/:token' element={<Magic_Link/>}> </Route>
-        
+          <Route path='/admin/createContest' element={isAuthenticated&&user?.role=='admin'?<CreateContest/>:<Navigate to='/'/>}> </Route>
+        <Route path='/contests' element={isAuthenticated?<Contests/>:<Navigate to='/'/>}> </Route>
+        <Route path='/contest/:id' element={isAuthenticated?<ContestProblem/>:<Navigate to='/'/>}> </Route>
+        <Route path='/contestproblem/:contestId/:problemId' element={isAuthenticated?<ContestProblemPage/>:<Navigate to='/'/>}> </Route>
+        <Route path='/contestResult/:contestId' element={isAuthenticated?<ContestResult/>:<Navigate to='/'/>}> </Route>
+        <Route path='/contestStats/:contestId/:problemId' element={isAuthenticated?<ContestSubmission/>:<Navigate to='/'/>}> </Route>
+         <Route path='/communitychat' element={isAuthenticated?<CommunityChat/>:<Navigate to='/'/>}> </Route>
+          <Route path='/code/:sessionId' element={<CollaborativeEditor/>}> </Route>
         
       </Routes>
     </>

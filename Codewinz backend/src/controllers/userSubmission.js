@@ -1,9 +1,10 @@
 const Problem=require("../models/problem");
 const Submission=require("../models/submission");
+const User=require("../models/user");
 const {getLanguageById,submitBatch,submitToken}=require("../utils/problemUtility");
 const submitCode=async(req,res)=>{
 try{
-    console.log(res)
+    // console.log(res)
     //userId through its middleware
     const userId=req.result._id;
     //problemId sending via param
@@ -13,7 +14,7 @@ try{
     //from frontend sending cpp as monaco does so chaning here
     if(language==='cpp')
         language='c++'
-
+    const user=await User.findById(userId); 
     if(!userId||!problemId||!code||!language)
         return res.status(400).send("Some field missing");
 
@@ -46,12 +47,15 @@ try{
 }))
 // console.log(submission)
 //submitting it 
+
 const submitResult=await submitBatch(submission);
 // console.log(submitResult)
 //fetching tokens in an array
 const result=submitResult.map((value)=>value.token);
 //submitting token 
+
 const testResult=await submitToken(result);
+// console.log("chck2",testResult)
 //update SubmittedResult of database
 //for it see what things come as output in testResult can do console log in createProblem one or even here 
 
@@ -61,22 +65,57 @@ let errorMessage=null;
 let runtime=0;
 let testCasesPassed=0;
 
+// Status mapping for Judge0
+
+ function getErrorByID(id) {
+  const statuses = {
+    1: "In Queue",
+    2: "Processing",
+    4: "Wrong Answer",
+    5: "Time Limit Exceeded",
+    6: "Compilation Error",
+    7: "Runtime Error (SIGSEGV)",
+    8: "Runtime Error (SIGXFSZ)",
+    9: "Runtime Error (SIGFPE)",
+    10: "Runtime Error (SIGABRT)",
+    11: "Runtime Error (NZEC)",
+    12: "Runtime Error (Other)",
+    13: "Internal Error",
+    14: "Exec Format Error"
+  };
+
+  return statuses[id] || "Unknown Error";
+}
+
+// Example usage:
+
+// console.log('check1')
+
+
 for(const test of testResult){
     if(test.status_id==3){
         testCasesPassed++;
         runtime=runtime+parseFloat(test.time);
         memory=Math.max(memory,test.memory);
+        // Update heatmap with today's date
+        const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        user.heatmap.set(today, (user.heatmap.get(today) || 0) + 1);
+          // Update topics
+        // Update topics - handling both array and single topic cases
+        if (problem.tags && Array.isArray(problem.tags)) {
+          problem.tags.forEach(topic => {
+            if (topic) { // Ensure topic exists
+              user.topics.set(topic, (user.topics.get(topic) || 0) + 1);
+            }
+          });
+        } else if (problem.tags) { // If single topic field exists
+          user.topics.set(problem.tags, (user.topics.get(problem.tags) || 0) + 1);
+        }
+        await user.save();
+        await problem.save();
     }
-    else{
-        if(test.status._id===4){
-            status="error";
-            errorMessage=test.stderr;
-        }
-        else{
-            status="wrong";
-            errorMessage=test.stderr;
-
-        }
+   else {
+     status=getErrorByID(test.status_id);
     }
 }
 //store result in database ie update submittedResult as already have reference of object can update without using findById and upadate
@@ -93,12 +132,12 @@ if(!req.result.problemSolved.includes((problemId))){
     await req.result.save();
 }
 
-const accepted=(status==="accepted");
+// const accepted=(status==="accepted");
 //if accepted true all test case accepted
 res.status(200).json({
- accepted,
+ status,
  totalTestCases:submittedResult.totalTestCases,
- passedTestCases:submittedResult.testCasesPassed,
+ passedTestCases:submittedResult.testCasesPassed||0,
  runtime,
  memory
 });
@@ -106,7 +145,9 @@ res.status(200).json({
 
 }
 catch(err){
-res.status(500).send("Internal server error:"+err);
+ 
+res.status(500).json({
+  "message":err.message});
 }
 }
 
@@ -135,7 +176,7 @@ const runCode=async(req,res)=>{
 
     //second one better as if server of judge0 got error and gave no result and in submissions also it wont show even submitted by frontend hence user experience will reduce hence use second approach ie maintain the state before hand only of the submission with pending status and when judge0 or some external API give result update it hence no data loss history maintain
 
- 
+   
 
     //submit code to judge0
     const languageId=getLanguageById(language);
@@ -153,9 +194,28 @@ const submitResult=await submitBatch(submission);
 const result=submitResult.map((value)=>value.token);
 //submitting token 
 const testResult=await submitToken(result);
+ function getErrorByID(id) {
+  const statuses = {
+    1: "In Queue",
+    2: "Processing",
+    4: "Wrong Answer",
+    5: "Time Limit Exceeded",
+    6: "Compilation Error",
+    7: "Runtime Error (SIGSEGV)",
+    8: "Runtime Error (SIGXFSZ)",
+    9: "Runtime Error (SIGFPE)",
+    10: "Runtime Error (SIGABRT)",
+    11: "Runtime Error (NZEC)",
+    12: "Runtime Error (Other)",
+    13: "Internal Error",
+    14: "Exec Format Error"
+  };
+
+  return statuses[id] || "Unknown Error";
+}
 
 let memory=0;
-let success=true;
+let status='accepted';
 let runtime=0;
 
 
@@ -165,14 +225,14 @@ for(const test of testResult){
         memory=Math.max(memory,test.memory);
     }
     else{   
-        success=false;
+         status=getErrorByID(test.status_id);
     }
 }
 
-console.log(testResult);
+// console.log(testResult);
 
 res.status(200).json({
-    success,
+    status,
     runtime,
     memory,
     testCases:testResult,

@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router';
 import { useEffect,useState } from 'react';
 import { registerUser } from '../../authSlice';
+import VoidBackground from '../components/VoidBackground';
 
 const signupSchema=z
 .object({
@@ -48,8 +49,10 @@ const {register,handleSubmit,formState: { errors },} = useForm({resolver:zodReso
 
  return (
   <>
+  <VoidBackground/>
+    
     <div className="flex flex-col justify-center items-center min-h-screen p-4 bg-gradient-to-br from-[#0f172a] to-[#1e293b] font-sans text-white">
-      <div className="w-full max-w-md space-y-5 bg-[#0f172a] p-8 rounded-2xl shadow-2xl border border-blue-800">
+      <div className="w-full relative  max-w-md space-y-5 bg-[#0f172a] p-8 rounded-2xl shadow-2xl border border-blue-800">
 
         {/* Header */}
         <h1 className="text-4xl font-bold flex justify-center items-center text-center text-blue-400 tracking-wide">

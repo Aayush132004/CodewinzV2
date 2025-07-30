@@ -9,6 +9,42 @@ const nodemailer = require("nodemailer");
 //google-login
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+//for upldating loginStreak
+const updateLoginStreak = async (user) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+  
+  // If no last login date (new user), set streak to 1
+  if (!user.lastLoginDate) {
+    user.loginStreak = 1;
+    user.lastLoginDate = today;
+    await user.save();
+    return;
+  }
+
+  const lastLogin = new Date(user.lastLoginDate);
+  lastLogin.setHours(0, 0, 0, 0); // Normalize to start of day
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  // If logged in today already, don't update
+  if (lastLogin.getTime() === today.getTime()) {
+    return;
+  }
+
+  // If logged in yesterday, increment streak
+  if (lastLogin.getTime() === yesterday.getTime()) {
+    user.loginStreak += 1;
+  } 
+  // If not consecutive, reset streak
+  else if (lastLogin.getTime() < yesterday.getTime()) {
+    user.loginStreak = 1;
+  }
+
+  user.lastLoginDate = today;
+  await user.save();
+};
 
 const register=async(req,res)=>{
     try{
@@ -33,6 +69,9 @@ const register=async(req,res)=>{
         //role user fixed to that no one without authority can register as admin
         req.body.role="user";
         const user=await User.create(req.body);
+        user.loginStreak=1;
+        user.lastLoginDate=new Date();
+        await user.save();
         //once registered create a token for user directly and can access home or else can generate token only when do login so after register login req to do,am giving direct access 
       const token= jwt.sign({id:user._id,emailId:emailId,role:"user"},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
       // console.log("check3");
@@ -45,6 +84,8 @@ const register=async(req,res)=>{
         _id:user._id,
         role:user.role,
         profile:user.profile.url,
+        streak: user.loginStreak, // Include streak in response
+        problemSolved:user.problemSolved,
       }
       res.status(201).json({
         user:reply,
@@ -77,10 +118,12 @@ const login=async(req,res)=>{
         if(user.loginMethod==="google")
           throw new Error("This account was created via Google. Please use Google Sign-In.")
         //////////////////////////////////
-
+      
         const match=await bcrypt.compare(password,user.password)
         if(!match)
             throw new Error("Invalid Credentials");
+          //before giving jwt inc loginStreak
+        await updateLoginStreak(user);
         //if passwords matched create jwt token and return it to user
          const token= jwt.sign({id:user._id,emailId:emailId,role:user.role},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
       res.cookie('token',token,{maxAge:60*60*1000,
@@ -94,7 +137,11 @@ const login=async(req,res)=>{
         _id:user._id,
         role:user.role,
         profile:user.profile.url,
+        streak: user.loginStreak, // Include streak in response
+         problemSolved:user?.problemSolved,
       }
+    //updating loginStreak and last login 
+
       // console.log(reply);
        res.status(201).json({
         user:reply,
@@ -146,13 +193,17 @@ try{
       },
       //something random so let be googletoken only
       password:randomPassword,
-      loginMethod:"google"
+      loginMethod:"google",
+      loginStreak: 1, // Initialize streak for new Google user
+     lastLoginDate: new Date()
     })
   }
   //user exist already generate jwt and give
   //if registered with mail let them use that
   if(user.loginMethod==="email")
     throw new Error("This email is already registered. Please login using email and password.")
+   // Update login streak for existing Google user
+        await updateLoginStreak(user);
 // console.log("check2");
     const token= jwt.sign({id:user._id,emailId:email,role:user.role},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
       res.cookie('token',token,{maxAge:60*60*1000, httpOnly: true,
@@ -164,8 +215,10 @@ try{
         _id:user._id,
         role:user.role,
         profile:user?.profile?.url,
+        streak: user.loginStreak,
+        problemSolved:user.problemSolved,
       }
-      // console.log(reply);
+      //  console.log(reply);
        res.status(201).json({
         user:reply,
         message:"Logged In Successfully"
@@ -312,13 +365,25 @@ const verifyMail=async(req,res)=>{
  const payload=jwt.verify(check_token,process.env.JWT_KEY);
  const {id}=payload;
   const user=await User.findById(id);
+    await updateLoginStreak(user);
    const token= jwt.sign({id:user._id,emailId:user.emailId,role:user.role},process.env.JWT_KEY,{expiresIn:60*60})//expiry setting an hour of token 
       res.cookie('token',token,{maxAge:60*60*1000,
          httpOnly: true,
   secure: true,           // required on Render (HTTPS)
   sameSite: "None"
       });
-res.status(200).send("Successfully verified");
+       const reply = {
+            firstName: user.firstName,
+            emailId: user.emailId,
+            _id: user._id,
+            role: user.role,
+            profile: user?.profile?.url,
+            streak: user.loginStreak // Include streak in response
+        }
+res.status(200).json({
+            user: reply,
+            message: "Logged In Successfully"
+})
     }
     catch(err){
       res.status(200).json({message:"Token is Invalid/Expired"});
