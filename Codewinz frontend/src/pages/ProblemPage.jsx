@@ -69,6 +69,7 @@ const ProblemPage = () => {
         setCode(initialCode);
         
         if (response.data.visibleTestCases) {
+          // console.log("visibleTest",response.data.visibleTestCases);
           setTestCaseResults(response.data.visibleTestCases.map((testCase, index) => ({
             id: index,
             input: testCase.input,
@@ -79,6 +80,7 @@ const ProblemPage = () => {
             runtime: null,
             memory: null
           })));
+          // console.log(testCaseResults)
         }
         
         setLoading(false);
@@ -462,7 +464,7 @@ const ProblemPage = () => {
                           
                           <div>
                             <strong className="text-green-300">Expected Output:</strong>
-                            <pre className="bg-gray-800 p-2 rounded mt-1 text-xs overflow-x-auto">{testCase.output}</pre>
+                            <pre className="bg-gray-800 p-2 rounded mt-1 text-xs overflow-x-auto">{testCase.expectedOutput}</pre>
                           </div>
                           
                           {testCase.actualOutput !== null && (

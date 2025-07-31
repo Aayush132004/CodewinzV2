@@ -37,7 +37,9 @@ const reply={
   loginStreak:user.loginStreak,
   heatmap:user.heatmap,
   topics:user.topics,
-   problemSolved:req.result?.problemSolved,
+  score:user.totalScore,
+  rating:user.rating,
+  problemSolved:req.result?.problemSolved,
 
 }
 res.status(200).send(reply);

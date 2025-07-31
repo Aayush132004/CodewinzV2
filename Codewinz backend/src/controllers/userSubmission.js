@@ -154,6 +154,7 @@ res.status(500).json({
 
 const runCode=async(req,res)=>{
     try{
+      console.log(req.body);
      //userId through its middleware
     const userId=req.result._id;
     //problemId sending via param
@@ -188,6 +189,7 @@ const runCode=async(req,res)=>{
 }))
 // console.log(submission)
 //submitting it 
+// console.log("submission",submission)
 const submitResult=await submitBatch(submission);
 // console.log(submitResult)
 //fetching tokens in an array
@@ -217,7 +219,7 @@ const testResult=await submitToken(result);
 let memory=0;
 let status='accepted';
 let runtime=0;
-
+// console.log("testResult",testResult)
 
 for(const test of testResult){
     if(test.status_id==3){

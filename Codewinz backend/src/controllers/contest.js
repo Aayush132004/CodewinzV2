@@ -1,5 +1,6 @@
 const Contest=require("../models/contestModel");
 const Problem=require("../models/problem");
+const User=require("../models/user");
 const ContestSubmission=require("../models/contestSubmission");
 const ContestParticipantScore=require("../models/contestParticipantScore")
 const {getLanguageById,submitBatch,submitToken}=require("../utils/problemUtility");
@@ -81,6 +82,7 @@ const getContestById=async(req,res)=>{
     try{
     const {id}=req.params;
     const contest=await Contest.findById(id);
+    console.log(contest);
     if(!contest)
         throw new Error("No contest found");
     res.status(200).send(contest);
@@ -179,6 +181,25 @@ const submit=async(req,res)=>{
     let testCasesPassed=0;
     let currentSubmissionScore=0;
     
+    function getErrorByID(id) {
+  const statuses = {
+    1: "In Queue",
+    2: "Processing",
+    4: "Wrong Answer",
+    5: "Time Limit Exceeded",
+    6: "Compilation Error",
+    7: "Runtime Error (SIGSEGV)",
+    8: "Runtime Error (SIGXFSZ)",
+    9: "Runtime Error (SIGFPE)",
+    10: "Runtime Error (SIGABRT)",
+    11: "Runtime Error (NZEC)",
+    12: "Runtime Error (Other)",
+    13: "Internal Error",
+    14: "Exec Format Error"
+  };
+
+  return statuses[id] || "Unknown Error";
+}
     for(const test of testResult){
         if(test.status_id==3){
             testCasesPassed++;
@@ -187,17 +208,12 @@ const submit=async(req,res)=>{
             currentSubmissionScore = problemMaxScore;
         }
         else{
-            if(test.status._id===4){
-                status="error";
-                errorMessage=test.stderr;
-                 currentSubmissionScore = 0; 
-            }
-            else{
-                status="wrong";
+               
+                status=getErrorByID(test.status_id);
                 errorMessage=test.stderr;
                 currentSubmissionScore = 0; 
-            }
-        }
+           
+          }
     }
     //store result in database ie update submittedResult as already have reference of object can update without using findById and upadate
     submittedResult.status=status;
@@ -220,12 +236,16 @@ const submit=async(req,res)=>{
             });
         }
          const currentProblemBestScore = participantScore.problemScores.get(problemId.toString()) || 0;
+        //for updating user net score 
+        const person=await User.findById(userId);
 
 
      
         if (currentSubmissionScore > currentProblemBestScore) {
             // Update if this submission is better than the previous best for this problem
             const oldTotalScore = participantScore.totalScore;
+            person.totalScore+=currentSubmissionScore;
+            await person.save();
             participantScore.problemScores.set(problemId.toString(), currentSubmissionScore);
             // Recalculate total score based on the updated problemScores map
             participantScore.totalScore = Array.from(participantScore.problemScores.values()).reduce((sum, score) => sum + score, 0);
@@ -237,12 +257,12 @@ const submit=async(req,res)=>{
         }
 
     //frontend response
-    const accepted=(status==="accepted");
+    // const accepted=(status==="accepted");
     //if accepted true all test case accepted
     res.status(200).json({
-     accepted,
+     status,
      totalTestCases:submittedResult.totalTestCases,
-     passedTestCases:submittedResult.testCasesPassed,
+     passedTestCases:submittedResult.testCasesPassed||0,
      runtime,
      memory
     });

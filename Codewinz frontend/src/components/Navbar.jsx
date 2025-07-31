@@ -12,9 +12,9 @@ const Navbar = () => {
   return (
       <div className=" fixed z-100 top-0 mb navbar px-10 py-4 bg-slate-800 shadow-md min-h-[72px] text-white">
         {/* Left: Site Name */}
-        <div className="flex-1">
+        <div onClick={()=>{navigate("/")}} className="flex-1 cursor-pointer ">
           <div className='flex'>
-            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 ">
             CodeWinz
           </span>
           <img src="/logo.png" className="h-10 w-15 object-cover"/>

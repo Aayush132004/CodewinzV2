@@ -114,10 +114,11 @@ const deleteProblem=async(req,res)=>{
 const getProblemById=async(req,res)=>{
   const {id}=req.params;
   try{
-  
+      // console.log(req.params);
       if(!id)
       return res.status(400).send("Missing ID Field");
     const DsaProblem=await Problem.findById(id).select(" _id title description difficulty tags visibleTestCases referenceTestCases startCode referenceSolution hiddenTestCases");
+    // console.log("hi",DsaProblem)
     if(!DsaProblem)
       if(!id)
       return res.status(400).send("Problem is not available in Database");
@@ -135,6 +136,7 @@ const getProblemById=async(req,res)=>{
       duration:video.duration,
        thumbnailUrl:video.thumbnailUrl
       }
+      console.log(responseData);
     //  console.log(responseData)
       return res.status(200).send(responseData);
     }

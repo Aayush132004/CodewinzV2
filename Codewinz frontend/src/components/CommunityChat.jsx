@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useSelector } from 'react-redux';
 import { Send, Settings, Users, MessageCircle, Palette, Moon, Sun, Zap, Hash, Smile, Paperclip, Search, MoreVertical, Star, Shield } from 'lucide-react';
+import Navbar from "./Navbar";
 
 // Function to get current user's basic info for displaying their own messages
 const getCurrentUser = (user) => {
@@ -201,9 +202,11 @@ function PremiumCommunityChat() {
   //   return msgDate.toDateString() === today.toDateString();
   // });
 
-  return (
-    <div className={`min-h-screen ${theme.bg} text-white relative overflow-hidden`}>
+  return (<>
+      <Navbar/>
+    <div className={`min-h-screen  pt-19  ${theme.bg} text-white relative overflow-hidden`}>
       {/* Animated Background */}
+     
       <div className="absolute inset-0 z-0 opacity-30">
         <div className={`absolute inset-0 bg-gradient-to-br ${theme.primary} opacity-10`}></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),transparent_50%)]"></div>
@@ -528,6 +531,7 @@ function PremiumCommunityChat() {
         }
       `}</style>
     </div>
+    </>
   );
 }
 

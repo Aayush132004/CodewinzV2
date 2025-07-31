@@ -1,6 +1,7 @@
 const mongoose=require("mongoose");
 const {Schema}=mongoose;
 
+
 //creating schema for user 
 const userSchema=new Schema({
     firstName:{
@@ -15,6 +16,23 @@ const userSchema=new Schema({
       required: true,
       default: "email"
       },
+   rating: {
+  type: String,
+  enum: [
+    'Human',
+    'Super Saiyan',
+    'Super Saiyan 2',
+    'Super Saiyan 3',
+    'Super Saiyan God',
+  ],
+  default:"Human",
+  
+},
+
+totalScore:{
+    type:Number,
+    default:0,
+},
 
     lastName:{
         type:String,
@@ -81,6 +99,28 @@ lastLoginDate: {
 },
 
 },{timestamps:true})
+userSchema.pre('save', function (next) {
+  this.rating = getRatingFromScore(this.totalScore);
+  next();
+});
+userSchema.pre('findOneAndUpdate', function (next) {
+  const update = this.getUpdate();
+
+  let newScore;
+  if (update.totalScore !== undefined) {
+    newScore = update.totalScore;
+  } else if (update.$set && update.$set.totalScore !== undefined) {
+    newScore = update.$set.totalScore;
+  }
+
+  if (newScore !== undefined) {
+    const newRating = getRatingFromScore(newScore);
+    if (!update.$set) update.$set = {};
+    update.$set.rating = newRating;
+  }
+  next();
+});
+
 
 //creating mongoose module of this schema (basically collection ie table) of name user
 const User=mongoose.model("user",userSchema);
