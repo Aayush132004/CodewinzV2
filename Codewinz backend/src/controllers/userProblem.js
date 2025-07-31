@@ -48,7 +48,7 @@ const {title,description,difficulty,tags,visibleTestCases,hiddenTestCases,startC
 
 
 try{
-   checkRefSolution(req);
+   checkRefSolution(req,res);
   //checked for all languages hence now can store data in database ie can create problem
 
     await Problem.create(
