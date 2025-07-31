@@ -1,6 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const CodeSession = require('../models/CodeSession');
+const CodeSession = require('../models/codeSession');
 const authMiddleware = require('../middleware/userMiddleware');
 const Problem = require('../models/problem');
 

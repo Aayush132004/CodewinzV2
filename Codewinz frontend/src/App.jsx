@@ -18,7 +18,7 @@ import AdminVideo from "./components/AdminVideo";
 import AdminUpload from "./components/AdminUpload";
 import Setting from "./pages/Setting";
 import Magic_Link from "./components/Magic_Link";
-import CreateContest from "./pages/createContest";
+import CreateContest from "./pages/CreateContest";
 import Contests from "./pages/Contests";
 import ContestProblem from "./pages/ContestProblem"
 import ContestProblemPage from "./pages/ContestProblemPage"
