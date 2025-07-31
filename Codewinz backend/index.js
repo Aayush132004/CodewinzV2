@@ -211,12 +211,14 @@ codeIo.use(async (socket, next) => {
 const codeSessionUsers = new Map();
 
 codeIo.on('connection', async (socket) => {
-    const { sessionId } = socket.codeSession; // Session data attached by middleware
-    const userDetails = socket.user || { id: socket.id, firstName: 'Anonymous', imageUrl: null }; // Use attached user or anonymous
+    const { sessionId } = socket.codeSession;
+    // Ensure userDetails always has a unique ID, even for anonymous users
+    const userDetails = socket.user || { id: socket.id, firstName: 'Anonymous', imageUrl: null };
+    // Add socket.id to userDetails for clearer tracking on the client side if needed
+    userDetails.socketId = socket.id;
 
-    console.log(`${userDetails.firstName} joined code session: ${sessionId}`);
+    console.log(`${userDetails.firstName} (${userDetails.id}) connected to code session: ${sessionId}`);
 
-    // Join the specific session room
     socket.join(sessionId);
 
     // Track users in this specific session
@@ -225,32 +227,47 @@ codeIo.on('connection', async (socket) => {
     }
     codeSessionUsers.get(sessionId).set(socket.id, userDetails);
 
-    // Get current users and their count for this session
-    const currentSessionUsers = Array.from(codeSessionUsers.get(sessionId).values());
-    const currentSessionUserCount = currentSessionUsers.length;
+    // Function to get and broadcast current users in a session
+    const emitSessionUsersUpdate = (targetSocket = null) => {
+        const sessionMap = codeSessionUsers.get(sessionId);
+        if (!sessionMap) return; // Session might have been cleaned up if last user left
+
+        const currentSessionUsers = Array.from(sessionMap.values());
+        const currentSessionUserCount = currentSessionUsers.length;
+
+        const dataToEmit = {
+            users: currentSessionUsers,
+            usersCount: currentSessionUserCount
+        };
+
+        if (targetSocket) {
+            // Emit to a specific socket (e.g., on initial connect)
+            targetSocket.emit('collaborators-update', dataToEmit);
+        } else {
+            // Broadcast to everyone in the room
+            codeIo.to(sessionId).emit('collaborators-update', dataToEmit);
+        }
+    };
 
     // Emit initial code content and users to the new client
     socket.emit('load-code', {
         code: socket.codeSession.codeContent,
         language: socket.codeSession.language,
         creatorName: socket.codeSession.creatorName,
-        users: currentSessionUsers, // Send current users in this session
-        usersCount: currentSessionUserCount // Send count of users
+        // No need to send users/count here, 'collaborators-update' will handle it
     });
 
-    // Broadcast user joined event to others in the room
-    socket.to(sessionId).emit('user-joined-code', userDetails);
-    // Emit the updated list of users and their count to everyone in the room
-    codeIo.to(sessionId).emit('session-users-update', currentSessionUsers);
-    codeIo.to(sessionId).emit('session-users-count', currentSessionUserCount);
+    // Send the full updated list of users to the newly connected client
+    emitSessionUsersUpdate(socket);
+
+    // Inform others in the room that a user has joined
+    socket.to(sessionId).emit('user-joined', userDetails);
 
 
     // Handle code changes from a client
     socket.on('code-change', async (newCode) => {
-        // Update the database with the latest code content
         try {
             await CodeSession.updateOne({ sessionId }, { codeContent: newCode, lastModified: new Date() });
-            // Broadcast the change to all other clients in the same room
             socket.to(sessionId).emit('code-change', newCode);
         } catch (error) {
             console.error(`Error updating code for session ${sessionId}:`, error);
@@ -260,51 +277,65 @@ codeIo.on('connection', async (socket) => {
 
     // Handle cursor/selection changes from a client
     socket.on('cursor-change', (cursorData) => {
-        // Broadcast cursor changes to all other clients in the same room
-        // cursorData should include { position: { lineNumber, column }, selection: { startLineNumber, startColumn, endLineNumber, endColumn } }
-        socket.to(sessionId).emit('cursor-change', { userId: userDetails.id, ...cursorData });
+        const enhancedCursorData = {
+            userId: userDetails.id, // Unique user ID
+            userName: userDetails.firstName,
+            userImageUrl: userDetails.imageUrl, // Send image URL for avatar if available
+            socketId: userDetails.socketId, // The specific socket that sent the cursor update
+            ...cursorData,
+            timestamp: Date.now()
+        };
+        socket.to(sessionId).emit('cursor-change', enhancedCursorData);
     });
 
+    // Handle user typing status
+    socket.on('user-typing', (data) => {
+        socket.to(sessionId).emit('user-typing', {
+            userId: userDetails.id,
+            userName: userDetails.firstName, // Include name for displaying "X is typing..."
+            isTyping: data.isTyping
+        });
+    });
 
-    // Handle client disconnection from a code session
+    socket.on('language-change', async (newLanguage) => {
+        try {
+            await CodeSession.updateOne({ sessionId }, { language: newLanguage });
+            socket.to(sessionId).emit('language-change', newLanguage);
+        } catch (error) {
+            console.error(`Error updating language for session ${sessionId}:`, error);
+            socket.emit('code-error', 'Failed to update language.');
+        }
+    });
+
     socket.on('disconnect', () => {
-        const { sessionId } = socket.codeSession; // Get sessionId before socket.codeSession might be gone
-        const { id: userId, firstName } = userDetails; // Use userDetails captured at connection
+        const { sessionId } = socket.codeSession;
+        const { id: userId, firstName } = userDetails;
 
-        console.log(`${firstName} left code session: ${sessionId}`);
+        console.log(`${firstName} (${userId}) disconnected from code session: ${sessionId}`);
 
-        // Remove the specific socket.id from the user's set of active sockets for this session
         if (codeSessionUsers.has(sessionId)) {
             const sessionMap = codeSessionUsers.get(sessionId);
-            sessionMap.delete(socket.id); // Remove this specific socket from the session's map
+            sessionMap.delete(socket.id); // Remove by socket.id
 
-            // If the session map is now empty, remove the session entry
+            // Broadcast user left event (with userId)
+            socket.to(sessionId).emit('user-left', userId); // Send userId for frontend to remove cursor/typing indicator
+
+            // Emit the updated list of collaborators
+            emitSessionUsersUpdate();
+
+            // Clean up empty sessions
             if (sessionMap.size === 0) {
                 codeSessionUsers.delete(sessionId);
                 console.log(`Code session ${sessionId} is now empty.`);
             }
         }
-
-        // Broadcast user left event to others in the room
-        socket.to(sessionId).emit('user-left-code', userId);
-
-        // Emit updated user list and count to the remaining clients in the room
-        if (codeSessionUsers.has(sessionId)) {
-            const remainingUsers = Array.from(codeSessionUsers.get(sessionId).values());
-            codeIo.to(sessionId).emit('session-users-update', remainingUsers);
-            codeIo.to(sessionId).emit('session-users-count', remainingUsers.length);
-        } else {
-            // If the session is now empty, explicitly tell clients it's empty
-            codeIo.to(sessionId).emit('session-users-update', []);
-            codeIo.to(sessionId).emit('session-users-count', 0);
-        }
     });
-
 
     socket.on('connect_error', (err) => {
         console.error(`Socket.IO Connection Error for socket ${socket.id}: ${err.message}`);
     });
 });
+
 
 
 // --- Initialize Database Connections and Start Server ---
