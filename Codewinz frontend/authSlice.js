@@ -1,5 +1,5 @@
 import {createAsyncThunk,createSlice, isRejectedWithValue} from '@reduxjs/toolkit'
-import axiosClient from "../Codewinz frontend/utils/axiosClient";
+import axiosClient from "./utils/axiosClient"
 
 export const registerUser=createAsyncThunk(
     'auth/register',

@@ -1,20 +1,27 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const app = express();
+const app=express();
+const cron = require('node-cron');
 require("dotenv").config();
 const main = require("./src/config/db");
 const cookieParser = require('cookie-parser');
-const userAuth = require("./src/routes/userAuth");
-const redisClient = require("./src/config/redis");
-const problemCreator = require("./src/routes/problemCreator");
-const submit = require("./src/routes/submit");
-const cors = require("cors");
-const videoRouter = require('./src/routes/videoRouter');
-const profileRouter = require('./src/routes/profile');
-const aiRouter = require('./src/routes/aiChatting');
-const contestRouter = require('./src/routes/contestRouter');
-const cron = require('node-cron');
+const userAuth=require("./src/routes/userAuth")
+const redisClient=require("./src/config/redis")
+const problemCreator=require("./src/routes/problemCreator")
+const submit=require("./src/routes/submit")
+const cors=require("cors");
+const videoRouter=require('./src/routes/videoRouter');
+const profileRouter=require("./src/routes/profile");
+const aiRouter=require("./src/routes/aiChatting");
+const contestRouter=require("./src/routes/contestRouter");
+///solving cors issue by allowing our frontend
+app.use(cors({
+    origin:process.env.FRONTEND_URL,
+    credentials:true,
+     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"]
+}))
 
 // Import new code collaboration route and model
 const codeCollaborationRouter = require('./src/routes/codeCollaboration');
@@ -40,21 +47,12 @@ const io = new Server(server, {
     }
 });
 
-// --- Express Middlewares ---
-app.use(cors({
-    origin: process.env.FRONTEND_URL,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"]
-}));
+
 
 app.use(express.json());
 app.use(cookieParser()); // Ensure cookie-parser is used for Express routes
 
-// --- Health Check Route ---
-app.get('/health', (req, res) => {
-    res.status(200).send("Backend is live");
-});
+
 
 // --- Your Existing API Routes ---
 app.use("/user", userAuth);
