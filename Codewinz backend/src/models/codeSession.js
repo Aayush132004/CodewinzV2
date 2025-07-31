@@ -46,6 +46,6 @@
         next();
     });
 
-    const CodeSession = mongoose.models.CodeSession||mongoose.model('CodeSession', codeSessionSchema);
+    const CodeSession = mongoose.models.codeSession||mongoose.model('codeSession', codeSessionSchema);
 
     module.exports = CodeSession;
