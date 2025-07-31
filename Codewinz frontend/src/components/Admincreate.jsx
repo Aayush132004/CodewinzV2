@@ -9,7 +9,7 @@ const problemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().min(1, 'Description is required'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
-  tags: z.enum(['array', 'linkedList', 'graph', 'dp','tree','string']),
+  tags: z.enum(['array','linkedlist','graph','dp','string','stack','queue','tree','bst']),
   visibleTestCases: z.array(
     z.object({
       input: z.string().min(1, 'Input is required'),
@@ -146,6 +146,9 @@ return (
                 <option value="tree">Tree</option>
                 <option value="string">String</option>
                 <option value="dp">Dynamic Programming</option>
+                <option value="stack">Dynamic Programming</option>
+                <option value="queue">Dynamic Programming</option>
+                 <option value="bst">Dynamic Programming</option>
               </select>
               {errors.tags && <p className="text-error text-sm">{errors.tags.message}</p>}
             </div>
