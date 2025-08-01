@@ -98,7 +98,15 @@ lastLoginDate: {
   type: Date,
 },
 
-},{timestamps:true})
+},{timestamps:true});
+function getRatingFromScore(score) {
+  if (score >= 2000) return 'Ultra Instinct';
+  if (score >= 1500) return 'Super Saiyan God';
+  if (score >= 1000) return 'Super Saiyan 3';
+  if (score >= 600) return 'Super Saiyan 2';
+  if (score >= 300) return 'Super Saiyan';
+  return 'Human';
+};
 userSchema.pre('save', function (next) {
   this.rating = getRatingFromScore(this.totalScore);
   next();
