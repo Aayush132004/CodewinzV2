@@ -24,6 +24,7 @@ const userSchema=new Schema({
     'Super Saiyan 2',
     'Super Saiyan 3',
     'Super Saiyan God',
+    'Ultra Instinct'
   ],
   default:"Human",
   
