@@ -28,8 +28,6 @@ function CreateSessionButton({ problemId }) {
       // Use axiosClient instead of fetch for consistency
       const response = await axiosClient.post(`/code/create-session`, {
         problemId: problemId,
-        initialCode: '// Start coding collaboratively!\nfunction solve() {\n  // Your code here\n}',
-        language: 'javascript'
       });
 
       const data = response.data; // Axios automatically parses JSON into response.data
@@ -56,7 +54,7 @@ function CreateSessionButton({ problemId }) {
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-        console.error('Failed to copy link using execCommand:', err);
+        console.error('Failed to copy link', err);
         alert('Failed to copy link. Please copy manually: ' + shareLink);
     } finally {
         document.body.removeChild(tempInput);

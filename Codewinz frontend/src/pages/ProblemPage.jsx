@@ -1,17 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import Editor from '@monaco-editor/react';
-import { useParams } from 'react-router'; // Use react-router-dom for useParams
-import { useSelector } from 'react-redux';
-import axiosClient from "../../utils/axiosClient"; // Assuming axiosClient is configured for your backend
+import { useParams } from 'react-router';
+import { useSelector, useDispatch } from 'react-redux';
+import axiosClient from "../../utils/axiosClient";
 import Submissionhistory from '../components/Submissionhistory';
 import Editorial from '../components/Editorial';
 import ChatAi from '../components/ChatAi';
-import CreateSessionButton from '../components/CreateSessionButton'; // Import the new button
-// import CollaborativeEditor from '../components/CollaborativeEditor'; // Import the collaborative editor
+import CreateSessionButton from '../components/CreateSessionButton';
+// You would also need to import the CollaborativeEditor component if you use it.
+// import CollaborativeEditor from '../components/CollaborativeEditor';
 
 const ProblemPage = () => {
   const { user } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [code, setCode] = useState('');
@@ -21,8 +23,7 @@ const ProblemPage = () => {
   const [activeLeftTab, setActiveLeftTab] = useState('description');
   const [testCaseResults, setTestCaseResults] = useState([]);
   const editorRef = useRef(null);
-  // Use useParams to get both problemId and sessionId from the URL
-  let { problemId, sessionId } = useParams(); 
+  let { problemId, sessionId } = useParams();
 
   const [selectedTheme, setSelectedTheme] = useState('vs-dark');
 
@@ -36,19 +37,26 @@ const ProblemPage = () => {
 
   const getBackendLanguage = (lang) => {
     if (lang === 'cpp') return 'c++';
-    else return lang;
+    return lang;
   };
 
   const { handleSubmit } = useForm();
 
+  // Helper function to check if the problem is solved.
+  // This memoizes the result and will only re-run if the user object or problemId changes.
+  const isProblemSolved = useMemo(() => {
+    if (!user || !user.problemSolved || !problemId) {
+      return false;
+    }
+    return Object.values(user.problemSolved).flat().includes(problemId);
+  }, [user, problemId]);
+
   // Effect to fetch problem details (runs only if NOT in collaborative mode)
   useEffect(() => {
-    // --- CONDITIONAL LOGIC START ---
-    if (sessionId) { // If sessionId is present in the URL, this is a collaborative session
-      setLoading(false); // CollaborativeEditor will handle its own loading state
-      return; // Do not fetch problem details here, CollaborativeEditor will get them
+    if (sessionId) {
+      setLoading(false);
+      return;
     }
-    // --- CONDITIONAL LOGIC END ---
 
     const fetchProblem = async () => {
       setLoading(true);
@@ -67,9 +75,8 @@ const ProblemPage = () => {
 
         setProblem(response.data);
         setCode(initialCode);
-        
+
         if (response.data.visibleTestCases) {
-          // console.log("visibleTest",response.data.visibleTestCases);
           setTestCaseResults(response.data.visibleTestCases.map((testCase, index) => ({
             id: index,
             input: testCase.input,
@@ -80,11 +87,9 @@ const ProblemPage = () => {
             runtime: null,
             memory: null
           })));
-          // console.log(testCaseResults)
         }
-        
-        setLoading(false);
 
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching problem:', error);
         setLoading(false);
@@ -92,13 +97,11 @@ const ProblemPage = () => {
     };
 
     fetchProblem();
-  }, [problemId, sessionId]); // Add sessionId to dependency array to re-run if mode changes
+  }, [problemId, sessionId, selectedLanguage]); // Added selectedLanguage to dependencies
 
   // Effect to update code when language or problem changes (only in non-collaborative mode)
   useEffect(() => {
-    // --- CONDITIONAL LOGIC START ---
-    if (!sessionId && problem) { // Only update if NOT in collaborative mode
-    // --- CONDITIONAL LOGIC END ---
+    if (!sessionId && problem) {
       const initialCode = problem.startCode.find((sc) => {
         if (sc.language === "c++" && selectedLanguage === 'cpp')
           return true;
@@ -110,7 +113,7 @@ const ProblemPage = () => {
       })?.initialCode || '';
       setCode(initialCode);
     }
-  }, [selectedLanguage, problem, sessionId]); // Add sessionId to dependency array
+  }, [selectedLanguage, problem, sessionId]);
 
   const handleEditorChange = (value) => {
     setCode(value || '');
@@ -133,9 +136,9 @@ const ProblemPage = () => {
         code,
         language: getBackendLanguage(selectedLanguage)
       });
-      
+
       setRunResult(response.data);
-      
+
       if (response.data.testCases && testCaseResults.length > 0) {
         const updatedTestCases = testCaseResults.map((testCase, index) => {
           const result = response.data.testCases[index];
@@ -153,7 +156,7 @@ const ProblemPage = () => {
         });
         setTestCaseResults(updatedTestCases);
       }
-      
+
       setLoading(false);
       setActiveLeftTab('testcase');
     } catch (error) {
@@ -163,7 +166,7 @@ const ProblemPage = () => {
         error: 'Internal server error',
         testCases: []
       });
-      
+
       const errorTestCases = testCaseResults.map(testCase => ({
         ...testCase,
         status: 'failed',
@@ -171,7 +174,7 @@ const ProblemPage = () => {
         error: 'Internal server error'
       }));
       setTestCaseResults(errorTestCases);
-      
+
       setLoading(false);
       setActiveLeftTab('testcase');
     }
@@ -189,6 +192,14 @@ const ProblemPage = () => {
 
       setSubmitResult(response.data);
       setLoading(false);
+
+      // If the submission is accepted, refetch the user's profile to update the solved problems list
+      if (response.data.status === "accepted" && user) {
+        // Assuming you have a Redux action to re-fetch the user data.
+        // This will trigger a state change in Redux, which in turn will re-render this component.
+        dispatch({ type: "REFETCH_USER" });
+      }
+
       setActiveLeftTab('result');
     } catch (error) {
       console.error('Error submitting code:', error);
@@ -262,11 +273,11 @@ const ProblemPage = () => {
   }, [handleMouseMove]);
 
 
-  // --- CONDITIONAL RENDERING ---
+  // --- CONDITIONAL RENDERING FOR COLLABORATIVE MODE ---
   if (sessionId) {
-    // If a sessionId is present in the URL, render the CollaborativeEditor
-    // CollaborativeEditor will handle its own data fetching and UI
-    return <CollaborativeEditor />; 
+    // If a sessionId is present, render the CollaborativeEditor
+    // return <CollaborativeEditor />;
+    return <div>Collaborative Editor Placeholder</div>;
   }
 
   // --- Normal Problem Page Rendering (if no sessionId) ---
@@ -284,7 +295,7 @@ const ProblemPage = () => {
       <div className="flex flex-col border-r border-base-300 bg-white/5 backdrop-blur-md shadow-inner" style={{ width: `${leftPanelWidth}%` }}>
         {/* Left Tabs */}
         <div className="tabs tabs-lifted px-6 py-3 border-b border-base-300 flex justify-between items-center">
-          <div className="flex"> {/* Wrap tabs in a div */}
+          <div className="flex">
             {['description', 'video Solution', 'solutions', 'submissions', 'chatAI', 'testcase', 'result'].map((tab) => (
               <button
                 key={tab}
@@ -295,7 +306,7 @@ const ProblemPage = () => {
               </button>
             ))}
           </div>
-          
+
         </div>
 
         {/* Left Content */}
@@ -323,7 +334,9 @@ const ProblemPage = () => {
                           <div className="space-y-1 font-mono text-xs">
                             <div><strong>Input:</strong> <pre className="inline bg-gray-800 p-1 rounded text-xs">{example.input}</pre></div>
                             <div><strong>Output:</strong> <pre className="inline bg-gray-800 p-1 rounded text-xs">{example.output}</pre></div>
-                            <div><strong>Explanation:</strong> <pre className="inline bg-gray-800 p-1 rounded text-xs">{example.explanation}</pre></div>
+                            {example.explanation && (
+                              <div><strong>Explanation:</strong> <pre className="inline bg-gray-800 p-1 rounded text-xs">{example.explanation}</pre></div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -333,9 +346,26 @@ const ProblemPage = () => {
               )}
 
               {activeLeftTab === 'video Solution' && (
-                <div className="prose prose-sm max-w-none text-base-content/80 whitespace-pre-wrap">
+                <div className="space-y-4">
                   <h2 className="text-xl font-semibold mb-4">Editorial</h2>
-                  <Editorial secureUrl={problem.secureUrl} thumbnailUrl={problem.thumbnailUrl} duration={problem.duration} />
+                  {isProblemSolved ? (
+                    <Editorial secureUrl={problem.secureUrl} thumbnailUrl={problem.thumbnailUrl} duration={problem.duration} />
+                  ) : (
+                    <div className="relative h-64 flex items-center justify-center rounded-lg bg-gray-900/50">
+                      <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-lg">
+                        <div className="text-center p-8">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          <h3 className="text-xl font-bold text-white mb-2">Video Solution Locked</h3>
+                          <p className="text-gray-300 text-sm max-w-sm">
+                            The video explanation will be available once you successfully solve this problem.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -343,8 +373,6 @@ const ProblemPage = () => {
                 <div className="space-y-4">
                   <h2 className="text-xl font-semibold mb-4">Solutions</h2>
                   {(() => {
-                    const isProblemSolved = user?.problemSolved && Object.values(user.problemSolved).flat().includes(problemId);
-                    
                     if (!problem.referenceSolution?.length) {
                       return <p className="text-sm text-gray-500">Solutions will be available after you solve the problem.</p>;
                     }
@@ -359,7 +387,7 @@ const ProblemPage = () => {
                               </svg>
                               <h3 className="text-xl font-bold text-white mb-2">Solutions Locked</h3>
                               <p className="text-gray-300 text-sm max-w-sm">
-                                Solve this problem first to unlock the reference solutions. 
+                                Solve this problem first to unlock the reference solutions.
                                 Challenge yourself before peeking at the answers!
                               </p>
                             </div>
@@ -435,14 +463,14 @@ const ProblemPage = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="space-y-4">
                     {testCaseResults.map((testCase, index) => (
                       <div
                         key={testCase.id}
                         className={`rounded-lg p-4 border shadow-sm transition-all duration-200 ${
-                          testCase.status === 'passed' 
-                            ? 'bg-green-900/20 border-green-700/50' 
+                          testCase.status === 'passed'
+                            ? 'bg-green-900/20 border-green-700/50'
                             : testCase.status === 'failed'
                             ? 'bg-red-900/20 border-red-700/50'
                             : 'bg-gray-700/20 border-gray-600/50'
@@ -455,18 +483,18 @@ const ProblemPage = () => {
                           </h4>
                           {getStatusBadge(testCase.status)}
                         </div>
-                        
+
                         <div className="space-y-2 text-sm text-gray-300">
                           <div>
                             <strong className="text-blue-300">Input:</strong>
                             <pre className="bg-gray-800 p-2 rounded mt-1 text-xs overflow-x-auto">{testCase.input}</pre>
                           </div>
-                          
+
                           <div>
                             <strong className="text-green-300">Expected Output:</strong>
                             <pre className="bg-gray-800 p-2 rounded mt-1 text-xs overflow-x-auto">{testCase.expectedOutput}</pre>
                           </div>
-                          
+
                           {testCase.actualOutput !== null && (
                             <div>
                               <strong className={testCase.status === 'passed' ? 'text-green-300' : 'text-red-300'}>
@@ -479,21 +507,21 @@ const ProblemPage = () => {
                               </pre>
                             </div>
                           )}
-                          
+
                           {testCase.explanation && (
                             <div>
                               <strong className="text-yellow-300">Explanation:</strong>
                               <p className="bg-gray-800 p-2 rounded mt-1 text-xs">{testCase.explanation}</p>
                             </div>
                           )}
-                          
+
                           {testCase.error && (
                             <div>
                               <strong className="text-red-300">Error:</strong>
                               <pre className="bg-red-900/30 p-2 rounded mt-1 text-xs overflow-x-auto">{testCase.error}</pre>
                             </div>
                           )}
-                          
+
                           {testCase.status !== 'pending' && (testCase.runtime || testCase.memory) && (
                             <div className="flex gap-4 mt-2 text-xs text-gray-400">
                               {testCase.runtime && <span>Runtime: {testCase.runtime} sec</span>}
@@ -504,13 +532,13 @@ const ProblemPage = () => {
                       </div>
                     ))}
                   </div>
-                  
+
                   {testCaseResults.length === 0 && (
                     <div className="text-center py-8">
                       <p className="text-gray-500">No test cases available.</p>
                     </div>
                   )}
-                  
+
                   {testCaseResults.every(tc => tc.status === 'pending') && (
                     <div className="text-center py-4">
                       <p className="text-gray-500 text-sm">Click "Run" to test your code with these test cases.</p>
@@ -523,18 +551,18 @@ const ProblemPage = () => {
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg mb-4 text-primary-content">Submission Result</h3>
                   {submitResult ? (
-                    <div className={`rounded-lg p-4 shadow-md ${submitResult?.status==="accepted" ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
-                      <div className={`flex items-center gap-2 mb-3 ${submitResult?.status==="accepted" ? 'text-green-400' : 'text-red-400'}`}>
-                        {submitResult?.status==="accepted" ? (
+                    <div className={`rounded-lg p-4 shadow-md ${submitResult?.status === "accepted" ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
+                      <div className={`flex items-center gap-2 mb-3 ${submitResult?.status === "accepted" ? 'text-green-400' : 'text-red-400'}`}>
+                        {submitResult?.status === "accepted" ? (
                           <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         ) : (
                           <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         )}
-                        <span className="text-lg font-bold">{submitResult?.status==="accepted" ? 'Submission Accepted' : `${submitResult?.status?submitResult?.status:"Submission Failed"}`}</span>
+                        <span className="text-lg font-bold">{submitResult?.status === "accepted" ? 'Submission Accepted' : `${submitResult?.status ? submitResult?.status : "Submission Failed"}`}</span>
                       </div>
 
                       <p className="text-sm text-gray-300 mb-4">
-                        {submitResult?.status==="accepted"
+                        {submitResult?.status === "accepted"
                           ? 'Your solution has passed all the required test cases and meets the performance constraints.'
                           : submitResult.error || "Some test cases did not pass. Please review your logic or performance constraints."
                         }
@@ -587,8 +615,8 @@ const ProblemPage = () => {
                   <option value="cpp">C++</option>
                 </select>
               </div>
-                {/* Create Collaborative Session Button - only show if problem is loaded */}
-          {problem && <CreateSessionButton problemId={problem._id} />} 
+              {/* Create Collaborative Session Button - only show if problem is loaded */}
+              {problem && <CreateSessionButton problemId={problem._id} />}
               {/* Theme Dropdown */}
               <div className="relative">
                 <select

@@ -22,14 +22,18 @@
             type: String,
             required: true
         },
-        codeContent: {
-            type: String,
-            default: '// Start coding collaboratively!\nfunction greet() {\n  console.log("Hello, World!");\n}',
+       startCode:[
+                {
+        language:{
+            type:String,
+            required:true,
         },
-        language: {
-            type: String,
-            default: 'javascript' // Default language for Monaco
-        },
+        initialCode:{
+            type:String,
+            required:true,
+        }
+           }
+        ],
         createdAt: {
             type: Date,
             default: Date.now

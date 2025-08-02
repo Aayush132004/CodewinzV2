@@ -1,43 +1,46 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const app=express();
-const cron = require('node-cron');
+const app = express();
+const cron = require("node-cron");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+
 require("dotenv").config();
 const main = require("./src/config/db");
-const cookieParser = require('cookie-parser');
-const userAuth=require("./src/routes/userAuth")
-const redisClient=require("./src/config/redis")
-const problemCreator=require("./src/routes/problemCreator")
-const submit=require("./src/routes/submit")
-const cors=require("cors");
-const videoRouter=require('./src/routes/videoRouter');
-const profileRouter=require("./src/routes/profile");
-const aiRouter=require("./src/routes/aiChatting");
-const contestRouter=require("./src/routes/contestRouter");
-///solving cors issue by allowing our frontend
-app.use(cors({
-    origin:process.env.FRONTEND_URL,
-    credentials:true,
-     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"]
-}))
+const redisClient = require("./src/config/redis");
+const User = require("./src/models/user");
+const CodeSession = require('./src/models/codeSession');
+const authMiddleware = require('./src/middleware/userMiddleware');
+const socketAuthMiddleware = require("./src/middleware/socketAuthMiddleware");
 
-// Import new code collaboration route and model
-const codeCollaborationRouter = require('./src/routes/codeCollaboration');
-const CodeSession = require('./src/models/codeSession'); // Import the new CodeSession model
-
-// Import chat utility functions
+// Import chat utility functions (using the working names from old code)
 const { fetchChatMessages, saveChatMessage, clearOldChatMessages } = require('./src/utils/fetchChat');
 
-// Import Socket.IO authentication middleware
-const socketAuthMiddleware = require("./src/middleware/socketAuthMiddleware");
-// Create a separate instance of cookie-parser for Socket.IO's internal use
-// This is needed for the /code namespace middleware to parse cookies.
-const cookieParserInstance = cookieParser(process.env.COOKIE_SECRET || 'your_cookie_secret_fallback');
+// --- Import API Routes ---
+const userAuth = require("./src/routes/userAuth");
+const problemCreator = require("./src/routes/problemCreator");
+const submit = require("./src/routes/submit");
+const videoRouter = require('./src/routes/videoRouter');
+const profileRouter = require("./src/routes/profile");
+const aiRouter = require("./src/routes/aiChatting");
+const contestRouter = require("./src/routes/contestRouter");
+const codeCollaborationRouter = require('./src/routes/codeCollaboration');
+
+const cors = require("cors");
+
+// --- Main Express and Socket.IO setup ---
+app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"]
+}));
+
+app.use(express.json());
+app.use(cookieParser());
 
 const server = http.createServer(app);
-
 const io = new Server(server, {
     cors: {
         origin: process.env.FRONTEND_URL,
@@ -47,12 +50,8 @@ const io = new Server(server, {
     }
 });
 
-
-
-app.use(express.json());
-app.use(cookieParser()); // Ensure cookie-parser is used for Express routes
-
-
+// A separate instance of cookie-parser for Socket.IO's internal use.
+const cookieParserInstance = cookieParser(process.env.COOKIE_SECRET || 'your_cookie_secret_fallback');
 
 // --- Your Existing API Routes ---
 app.use("/user", userAuth);
@@ -62,15 +61,10 @@ app.use("/video", videoRouter);
 app.use("/profile", profileRouter);
 app.use("/ai", aiRouter);
 app.use("/contest", contestRouter);
-
-// --- New Code Collaboration Routes ---
 app.use("/code", codeCollaborationRouter);
 
-// --- Apply Socket.IO Authentication Middleware for Main Chat ---
-// This middleware authenticates connections to the default namespace (for chat).
-io.use(socketAuthMiddleware);
 
-// --- Online Users Tracking (for Main Chat) ---
+// --- Main Community Chat Logic (Root Namespace) - Using Working Logic from Old Code ---
 const onlineUsersMap = new Map(); // Map<userId, { userDetails, Set<socketId> }>
 
 const emitOnlineUsers = () => {
@@ -80,7 +74,9 @@ const emitOnlineUsers = () => {
     console.log(`Currently ${uniqueOnlineUsers.length} unique chat users online.`);
 };
 
-// --- Socket.IO Event Handling for Main Chat ---
+// Middleware to authenticate users for the main chat namespace
+io.use(socketAuthMiddleware);
+
 io.on('connection', async (socket) => {
     // This connection handler is for the main chat.
     // `socket.user` is populated by `socketAuthMiddleware`.
@@ -94,6 +90,7 @@ io.on('connection', async (socket) => {
     onlineUsersMap.get(userId).socketIds.add(socket.id);
     emitOnlineUsers();
 
+    // Initial message load - using the working function name
     try {
         const initialMessages = await fetchChatMessages({ limit: 50 });
         socket.emit('load messages', initialMessages);
@@ -102,6 +99,7 @@ io.on('connection', async (socket) => {
         socket.emit('chat error', 'Failed to load chat history.');
     }
 
+    // Handle incoming chat messages
     socket.on('chat message', async (msg) => {
         if (typeof msg !== 'string' || msg.trim() === '') {
             console.log('Received empty or invalid message from', firstName);
@@ -145,16 +143,15 @@ io.on('connection', async (socket) => {
 });
 
 
-// --- Socket.IO Event Handling for Collaborative Coding (New Namespace) ---
-// This handles connections to specific collaborative coding sessions.
-// It uses a separate namespace and a different middleware for flexible authentication (anonymous allowed).
-const codeIo = io.of('/code'); // Create a separate namespace for coding collaboration
+// --- Collaborative Coding Namespace (`/code`) - Using Improved Logic from New Code ---
+const codeIo = io.of('/code');
 
-// Middleware for the '/code' namespace for session validation (can be anonymous)
+// Map to track active users in each code session room
+const codeSessionUsers = new Map();
+
+// Middleware for the '/code' namespace
 codeIo.use(async (socket, next) => {
-    // Session ID can come from query parameter (for share link) or auth object (if explicitly passed)
     const sessionId = socket.handshake.query.sessionId || socket.handshake.auth?.sessionId;
-
     if (!sessionId) {
         return next(new Error("Collaboration error: Session ID missing."));
     }
@@ -164,106 +161,169 @@ codeIo.use(async (socket, next) => {
         if (!session) {
             return next(new Error("Collaboration error: Invalid session ID."));
         }
-
-        // Attach session data to the socket object
         socket.codeSession = session;
 
-        // Attempt to get user data if a JWT is present in cookies (for logged-in collaborators)
-        // This re-uses the cookie parsing logic from your main `cookieParserInstance`.
+        const frontendUserId = socket.handshake.query.userId || socket.handshake.auth?.userId;
+        const frontendFirstName = socket.handshake.query.firstName || socket.handshake.auth?.firstName;
+        const frontendImageUrl = socket.handshake.query.imageUrl || socket.handshake.auth?.imageUrl;
+
         cookieParserInstance(socket.request, {}, async (err) => {
             if (err) {
-                console.warn("Code Collab: Cookie parsing error for potential user:", err.message);
-                // Don't block connection if cookie parsing fails, just means no user data.
+                console.warn("Code Collab: Cookie parsing error:", err.message);
             }
 
-            const token = socket.request.cookies.jwtToken; // Your JWT cookie name (e.g., 'jwtToken')
+            const token = socket.request.cookies.jwtToken;
+            let authenticatedUser = null;
+
             if (token) {
                 try {
-                    const jwt = require("jsonwebtoken"); // Ensure jwt is available
-                    const User = require("./src/models/"); // Ensure User model is available
                     const payload = jwt.verify(token, process.env.JWT_KEY);
                     const user = await User.findById(payload.id);
                     if (user) {
-                        socket.user = {
+                        authenticatedUser = {
                             id: user._id.toString(),
                             firstName: user.firstName,
-                            imageUrl: user.profile?.url || null
+                            imageUrl: user.profile?.url || null,
+                            isAuthenticated: true
                         };
-                        console.log(`Code Collab: Authenticated user ${socket.user.firstName} joined session ${sessionId}`);
+                        console.log(`Code Collab: Authenticated user ${authenticatedUser.firstName} joined session ${sessionId}`);
                     }
                 } catch (jwtErr) {
-                    console.warn("Code Collab: JWT verification failed for potential user:", jwtErr.message);
+                    console.warn("Code Collab: JWT verification failed:", jwtErr.message);
                 }
-            } else {
-                console.log(`Code Collab: Anonymous user joined session ${sessionId}`);
             }
-            next(); // Allow the connection
-        });
 
+            if (authenticatedUser) {
+                socket.user = authenticatedUser;
+            } else if (frontendUserId && frontendFirstName) {
+                socket.user = {
+                    id: frontendUserId,
+                    firstName: frontendFirstName,
+                    imageUrl: frontendImageUrl || null,
+                    isAuthenticated: false
+                };
+                console.log(`Code Collab: Anonymous user ${socket.user.firstName} (${socket.user.id}) joined session ${sessionId}`);
+            } else {
+                socket.user = {
+                    id: socket.id,
+                    firstName: 'Anonymous',
+                    imageUrl: null,
+                    isAuthenticated: false
+                };
+                console.log(`Code Collab: Fallback anonymous user joined session ${sessionId}`);
+            }
+
+            next();
+        });
     } catch (error) {
         console.error("Code Collab: Error during session validation:", error.message);
         next(new Error("Collaboration error: " + error.message));
     }
 });
 
-// Map to track active users in each code session room
-// Map<sessionId, Map<socketId, { userId, firstName, imageUrl }>>
-const codeSessionUsers = new Map();
+const emitSessionUsersUpdate = (sessionId, targetSocket = null) => {
+    const sessionMap = codeSessionUsers.get(sessionId);
+    if (!sessionMap) return;
 
-codeIo.on('connection', async (socket) => {
-    const { sessionId } = socket.codeSession;
-    // Ensure userDetails always has a unique ID, even for anonymous users
-    const userDetails = socket.user || { id: socket.id, firstName: 'Anonymous', imageUrl: null };
-    // Add socket.id to userDetails for clearer tracking on the client side if needed
-    userDetails.socketId = socket.id;
+    const currentSessionUsers = Array.from(sessionMap.values()).map(userEntry => ({
+        id: userEntry.userId,
+        firstName: userEntry.firstName,
+        imageUrl: userEntry.imageUrl,
+        isAuthenticated: userEntry.isAuthenticated,
+        socketCount: userEntry.socketIds.size
+    }));
 
-    console.log(`${userDetails.firstName} (${userDetails.id}) connected to code session: ${sessionId}`);
+    const dataToEmit = {
+        users: currentSessionUsers,
+        usersCount: currentSessionUsers.length
+    };
 
-    socket.join(sessionId);
+    console.log(`Code Collab: Emitting collaborators update for session ${sessionId}:`, dataToEmit);
 
-    // Track users in this specific session
+    if (targetSocket) {
+        targetSocket.emit('collaborators-update', dataToEmit);
+    } else {
+        codeIo.to(sessionId).emit('collaborators-update', dataToEmit);
+    }
+};
+
+const addUserToSession = (sessionId, userId, userDetails, socketId) => {
     if (!codeSessionUsers.has(sessionId)) {
         codeSessionUsers.set(sessionId, new Map());
     }
-    codeSessionUsers.get(sessionId).set(socket.id, userDetails);
 
-    // Function to get and broadcast current users in a session
-    const emitSessionUsersUpdate = (targetSocket = null) => {
-        const sessionMap = codeSessionUsers.get(sessionId);
-        if (!sessionMap) return; // Session might have been cleaned up if last user left
+    const sessionMap = codeSessionUsers.get(sessionId);
 
-        const currentSessionUsers = Array.from(sessionMap.values());
-        const currentSessionUserCount = currentSessionUsers.length;
+    if (sessionMap.has(userId)) {
+        sessionMap.get(userId).socketIds.add(socketId);
+    } else {
+        sessionMap.set(userId, {
+            userId: userId,
+            firstName: userDetails.firstName,
+            imageUrl: userDetails.imageUrl,
+            isAuthenticated: userDetails.isAuthenticated,
+            socketIds: new Set([socketId])
+        });
+    }
+};
 
-        const dataToEmit = {
-            users: currentSessionUsers,
-            usersCount: currentSessionUserCount
-        };
+const removeUserFromSession = (sessionId, userId, socketId) => {
+    if (!codeSessionUsers.has(sessionId)) return;
 
-        if (targetSocket) {
-            // Emit to a specific socket (e.g., on initial connect)
-            targetSocket.emit('collaborators-update', dataToEmit);
-        } else {
-            // Broadcast to everyone in the room
-            codeIo.to(sessionId).emit('collaborators-update', dataToEmit);
+    const sessionMap = codeSessionUsers.get(sessionId);
+    if (!sessionMap.has(userId)) return;
+
+    const userEntry = sessionMap.get(userId);
+    userEntry.socketIds.delete(socketId);
+
+    if (userEntry.socketIds.size === 0) {
+        sessionMap.delete(userId);
+    }
+
+    if (sessionMap.size === 0) {
+        codeSessionUsers.delete(sessionId);
+    }
+};
+
+codeIo.on('connection', async (socket) => {
+    const { sessionId } = socket.codeSession;
+    const userDetails = socket.user;
+
+    console.log(`${userDetails.firstName} (${userDetails.id}) connected to code session: ${sessionId} with socket ${socket.id}`);
+
+    socket.join(sessionId);
+
+    addUserToSession(sessionId, userDetails.id, userDetails, socket.id);
+
+    emitSessionUsersUpdate(sessionId);
+
+    socket.on('user-joined', (userData) => {
+        console.log(`Code Collab: Received user-joined event:`, userData);
+
+        if (userData && userData.userId) {
+            const updatedUserDetails = {
+                id: userData.userId,
+                firstName: userData.firstName || userDetails.firstName,
+                imageUrl: userData.imageUrl || userDetails.imageUrl,
+                isAuthenticated: userDetails.isAuthenticated
+            };
+
+            removeUserFromSession(sessionId, userDetails.id, socket.id);
+            socket.user = updatedUserDetails;
+            addUserToSession(sessionId, updatedUserDetails.id, updatedUserDetails, socket.id);
+
+            emitSessionUsersUpdate(sessionId);
         }
-    };
-
-    // Emit initial code content and users to the new client
-    socket.emit('load-code', {
-        code: socket.codeSession.codeContent,
-        language: socket.codeSession.language,
-        creatorName: socket.codeSession.creatorName,
-        // No need to send users/count here, 'collaborators-update' will handle it
     });
 
-    // Send the full updated list of users to the newly connected client
-    emitSessionUsersUpdate(socket);
-
-    // Inform others in the room that a user has joined
-    socket.to(sessionId).emit('user-joined', userDetails);
-
-
+    socket.on('load-code', () => {
+        socket.emit('load-code', {
+            code: socket.codeSession.codeContent,
+            language: socket.codeSession.language,
+            creatorName: socket.codeSession.creatorName,
+        });
+    });
+    
     // Handle code changes from a client
     socket.on('code-change', async (newCode) => {
         try {
@@ -275,13 +335,48 @@ codeIo.on('connection', async (socket) => {
         }
     });
 
-    // Handle cursor/selection changes from a client
+    // Handle language changes
+    socket.on('language-change', async (languageData) => {
+        try {
+            const session = await CodeSession.findOne({ sessionId });
+            if (!session) {
+                return socket.emit('code-error', 'Session not found.');
+            }
+
+            let targetLanguage = languageData.language;
+            if (targetLanguage === "cpp") {
+                targetLanguage = "c++";
+            }
+
+            console.log("Language change request:", languageData, "-> Target:", targetLanguage);
+
+            const boilerplateEntry = session.startCode.find(entry => entry.language === targetLanguage);
+            const updatedCodeContent = languageData.codeContent || (boilerplateEntry ? boilerplateEntry.initialCode : session.codeContent);
+
+            await CodeSession.updateOne({ sessionId }, {
+                language: targetLanguage,
+                codeContent: updatedCodeContent,
+                lastModified: new Date()
+            });
+
+            codeIo.to(sessionId).emit('language-change', {
+                language: targetLanguage,
+                codeContent: updatedCodeContent
+            });
+
+        } catch (error) {
+            console.error(`Error updating language for session ${sessionId}:`, error);
+            socket.emit('code-error', 'Failed to update language.');
+        }
+    });
+
+    // Handle cursor/selection changes
     socket.on('cursor-change', (cursorData) => {
         const enhancedCursorData = {
-            userId: userDetails.id, // Unique user ID
+            userId: userDetails.id,
             userName: userDetails.firstName,
-            userImageUrl: userDetails.imageUrl, // Send image URL for avatar if available
-            socketId: userDetails.socketId, // The specific socket that sent the cursor update
+            userImageUrl: userDetails.imageUrl,
+            socketId: socket.id,
             ...cursorData,
             timestamp: Date.now()
         };
@@ -292,42 +387,23 @@ codeIo.on('connection', async (socket) => {
     socket.on('user-typing', (data) => {
         socket.to(sessionId).emit('user-typing', {
             userId: userDetails.id,
-            userName: userDetails.firstName, // Include name for displaying "X is typing..."
+            userName: userDetails.firstName,
             isTyping: data.isTyping
         });
-    });
-
-    socket.on('language-change', async (newLanguage) => {
-        try {
-            await CodeSession.updateOne({ sessionId }, { language: newLanguage });
-            socket.to(sessionId).emit('language-change', newLanguage);
-        } catch (error) {
-            console.error(`Error updating language for session ${sessionId}:`, error);
-            socket.emit('code-error', 'Failed to update language.');
-        }
     });
 
     socket.on('disconnect', () => {
         const { sessionId } = socket.codeSession;
         const { id: userId, firstName } = userDetails;
 
-        console.log(`${firstName} (${userId}) disconnected from code session: ${sessionId}`);
+        console.log(`${firstName} (${userId}) disconnected from code session: ${sessionId} (socket: ${socket.id})`);
 
-        if (codeSessionUsers.has(sessionId)) {
-            const sessionMap = codeSessionUsers.get(sessionId);
-            sessionMap.delete(socket.id); // Remove by socket.id
+        removeUserFromSession(sessionId, userId, socket.id);
 
-            // Broadcast user left event (with userId)
-            socket.to(sessionId).emit('user-left', userId); // Send userId for frontend to remove cursor/typing indicator
+        emitSessionUsersUpdate(sessionId);
 
-            // Emit the updated list of collaborators
-            emitSessionUsersUpdate();
-
-            // Clean up empty sessions
-            if (sessionMap.size === 0) {
-                codeSessionUsers.delete(sessionId);
-                console.log(`Code session ${sessionId} is now empty.`);
-            }
+        if (!codeSessionUsers.has(sessionId)) {
+            console.log(`Code session ${sessionId} is now empty.`);
         }
     });
 
@@ -335,7 +411,6 @@ codeIo.on('connection', async (socket) => {
         console.error(`Socket.IO Connection Error for socket ${socket.id}: ${err.message}`);
     });
 });
-
 
 
 // --- Initialize Database Connections and Start Server ---
@@ -348,7 +423,6 @@ const InitializeConnection = async () => {
             console.log("Express server listening on port " + process.env.PORT);
             console.log("Socket.IO server is also running on the same port.");
 
-            // Schedule the chat cleanup task to run daily at midnight
             cron.schedule('0 0 * * *', async () => {
                 console.log('Running scheduled chat cleanup...');
                 try {

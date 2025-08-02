@@ -12,20 +12,23 @@ const router = express.Router();
 // POST /code/create-session
 router.post('/create-session', authMiddleware, async (req, res) => {
     try {
+        // console.log("hi",req.body)
+
         req.user = req.result;
         if (!req.user || !req.user.id || !req.user.firstName) {
             return res.status(401).json({ message: 'Unauthorized: User not identified.' });
         }
 
         const sessionId = uuidv4();
-        const { initialCode = '', language = 'javascript', problemId = null } = req.body;
+        const {  problemId } = req.body;
+        const problem=await Problem.findById(problemId);
 
+        
         const newSession = new CodeSession({
             sessionId: sessionId,
             creatorId: req.user.id,
             creatorName: req.user.firstName,
-            codeContent: initialCode,
-            language: language,
+            startCode:problem.startCode,
             problemId: problemId
         });
 
@@ -67,8 +70,7 @@ router.get('/:sessionId', async (req, res) => {
             sessionId: session.sessionId,
             creatorId: session.creatorId,
             creatorName: session.creatorName,
-            codeContent: session.codeContent,
-            language: session.language,
+            startCode:session.startCode,
             createdAt: session.createdAt,
             lastModified: session.lastModified,
             problemDetails: session.problemId || null,
