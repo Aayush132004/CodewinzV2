@@ -13,7 +13,7 @@ const CreateContest = () => {
     // Fetch all available problems when the component mounts
     const fetchProblems = async () => {
       try {
-        const problems = await axiosClient.get("/problem/getAllProblem");
+        const problems = await axiosClient.get("/problem/getAllProblemwithoutlimit");
         console.log("soln",problems);
         setAllProblems(problems.data.allProblems);
       } catch (error) {

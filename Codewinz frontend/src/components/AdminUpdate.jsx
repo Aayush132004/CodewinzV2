@@ -16,7 +16,7 @@ const AdminUpdate = () => {
   const fetchProblems = async () => {
     try {
       setLoading(true);
-      const { data } = await axiosClient.get('/problem/getAllProblem');
+      const { data } = await axiosClient.get('/problem/getAllProblemwithoutlimit');
     //   console.log(data);
       setProblems(data.allProblems);
       

@@ -2,7 +2,7 @@ const express=require("express");
 const problemRouter=express.Router();
 const adminMiddleware=require("../middleware/adminMiddleware"); 
 const userMiddleware=require("../middleware/userMiddleware")
-const {createProblem,updateProblem,deleteProblem,getProblemById,getAllProblem,solvedAllProblembyUser,submittedProblem}=require("../controllers/userProblem")
+const {createProblem,updateProblem,deleteProblem,getProblemById,getAllProblem,solvedAllProblembyUser,submittedProblem,getAllProblemwithoutlimit}=require("../controllers/userProblem")
 //Create
 //update
 //delete
@@ -19,6 +19,7 @@ problemRouter.delete("/delete/:id",adminMiddleware,deleteProblem);
 problemRouter.get("/problemSolvedByUser",userMiddleware,solvedAllProblembyUser);
 problemRouter.get("/problemById/:id",userMiddleware,getProblemById);
 problemRouter.get("/getAllProblem",userMiddleware,getAllProblem);
+problemRouter.get("/getAllProblemwithoutlimit",userMiddleware,getAllProblemwithoutlimit);
 //to get submission of a problem solved by user
 problemRouter.get("/submittedProblem/:pid",userMiddleware,submittedProblem)
 

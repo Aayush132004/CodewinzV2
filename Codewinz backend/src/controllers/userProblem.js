@@ -169,6 +169,21 @@ const getAllProblem=async(req,res)=>{
       res.status(404).send("Error:"+err);
   } 
 }
+const getAllProblemwithoutlimit=async(req,res)=>{
+  try{
+    
+
+     const allProblems=await Problem.find({}).select("_id difficulty  tags title");
+     if(allProblems.length==0)
+     return res.status(404).send("No Problems are there");
+    // console.log(allProblems);
+
+    return res.status(200).send({allProblems});
+  }
+  catch(err){
+      res.status(404).send("Error:"+err);
+  } 
+}
 //////////////////////////////////////////
 const solvedAllProblembyUser=async(req,res)=>{
    //in req.result we have user object got from token (cookie) via user middleware
@@ -206,7 +221,7 @@ const submittedProblem=async(req,res)=>{
   res.status(500).send("Internal Server Error");
   }
 }
-module.exports={createProblem,updateProblem,deleteProblem,getProblemById,getAllProblem,solvedAllProblembyUser,submittedProblem};
+module.exports={createProblem,updateProblem,deleteProblem,getProblemById,getAllProblem,solvedAllProblembyUser,submittedProblem,getAllProblemwithoutlimit};
 
 
 
