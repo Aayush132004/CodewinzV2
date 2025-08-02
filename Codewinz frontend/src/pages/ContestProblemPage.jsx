@@ -1,310 +1,368 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router';
-import Editor from '@monaco-editor/react';
-import { io } from 'socket.io-client';
-import { Users, Copy, Check, AlertCircle } from 'lucide-react';
+const Contest=require("../models/contestModel");
+const Problem=require("../models/problem");
+const User=require("../models/user");
+const ContestSubmission=require("../models/contestSubmission");
+const ContestParticipantScore=require("../models/contestParticipantScore")
+const {getLanguageById,submitBatch,submitToken}=require("../utils/problemUtility");
+const createContest=async(req,res)=>{
+try{ 
+    // console.log(req.body);
+    // console.log("hello");
+// if(!req.body)
+//     throw new Error("Input data missing");
 
-const CollaborativeEditor = () => {
-  const { sessionId } = useParams();
-  const [code, setCode] = useState('');
-  const [language, setLanguage] = useState('javascript');
-  const [collaborators, setCollaborators] = useState([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState(null);
-  const [creatorName, setCreatorName] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [typingUsers, setTypingUsers] = useState(new Set());
-  
-  const socketRef = useRef(null);
-  const editorRef = useRef(null);
-  const isUpdatingFromSocket = useRef(false);
-  const typingTimeoutRef = useRef(null);
-  const lastCodeRef = useRef('');
+const {title,startDate,endDate,problems}=req.body;
 
-  // Debounced code change handler to prevent flickering
-  const debouncedCodeChange = useCallback((newCode) => {
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+const createdContest=await Contest.create({
+...req.body,
+registeredUsers:[],
+creator:req.result._id,
+})
+// console.log(createdContest);
+res.status(200).json({
+    "message":"Contest Created Successfully"
+});
+}
+catch(e){
+console.log(e);
+res.status(500).json({
+    "message":e.message,
+})
+}
+}
+ const getAllContest=async(req,res)=>{
+  try{
+    //  console.log("hi");
+    //giving only upcoming and ones in which user registered 
+    const allContest = await Contest.find({
+        //$or: is a logical or operator ye ya ye koi condn true ho 
+  $or: [
+    { startDate: { $gt: Date.now() } },
+    { registeredUsers: req.result._id},
+  ],
+}).sort({ startDate: 1 });
+    // console.log(allContest);
+     if (allContest.length===0)
+        throw new Error("No contests exist");
+    res.status(200).json({
+        "contests":allContest,
+    })
+  }
+  catch(e){
+    // console.log(e)
+    res.status(500).json({
+        "message":"Internal server error"
+    })
+  }
+ }
     
-    typingTimeoutRef.current = setTimeout(() => {
-      if (socketRef.current && newCode !== lastCodeRef.current) {
-        socketRef.current.emit('code-change', newCode);
-        lastCodeRef.current = newCode;
-      }
-    }, 300); // 300ms debounce
-  }, []);
 
-  useEffect(() => {
-    // Initialize socket connection
-    socketRef.current = io(`${import.meta.env.VITE_API_URL}/code`, {
-      query: { sessionId },
-      withCredentials: true,
-      transports: ['websocket', 'polling']
-    });
+const registerContest=async(req,res)=>{
+    try{
+        console.log("hi")
+      //when person register simply us contest ke registered array mai push krwadunga  user ke id  bs contest ke id lene pdegi wo params se lelunga 
+    const {id}=req.params;
+    console.log(id);
+    const contest=await Contest.findById(id);
+    if(contest.startDate<=Date.now())
+      throw new Error("Contest started cant register now")
+    contest.registeredUsers.push(req.result._id);
+    await contest.save();
+    console.log("registered");
+    res.status(200).send("Successfully registered for contest")
+    }
+    catch(e){ 
+        console.log(e)
+     res.status(500).json({
+        "message":"Internal Server Error"
+     })
+    }
+}
+const getContestById=async(req,res)=>{
+    try{
+    const {id}=req.params;
+    const contest=await Contest.findById(id);
+    console.log(contest);
+    if(!contest)
+        throw new Error("No contest found");
+    res.status(200).send(contest);
 
-    const socket = socketRef.current;
+    }
+    catch(e){
+        res.status(500).json({
+            "message":e.message,
+        })
+    }
 
-    // Connection handlers
-    socket.on('connect', () => {
-      console.log('Connected to collaborative session');
-      setIsConnected(true);
-      setError(null);
-    });
+}
+const submit=async(req,res)=>{
+      try{
+        // console.log("hitted")
+    
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from collaborative session');
-      setIsConnected(false);
-    });
+    const {problemId}=req.params;
+    const {code,contestId,language,points}=req.body;
+    const userId=req.result._id;
+    const contest=await Contest.findById(contestId);
+    if(contest.endDate<Date.now())
+        throw new Error("Contest Ended Cant Submit Now");
+    // console.log({
+    //     "code":code,
+    //     "contestId":contestId,
+    //     "points":points,
+    //     "problemId":problemId,
+    //     "language":language,
+    //     "userId":userId,
+    // });
+        //problemId sending via param
+        //code and language we take from frontend
+        //from frontend sending cpp as monaco does so chaning here
+        if(language==='cpp')
+            language='c++'
+    
+        if(!userId||!problemId||!code||!language||!contestId)
+            return res.status(400).send("Some field missing");
+    
+        //fetch problem from database then run in judge0 to get rest data for our submission ie testcases and all
+        const problem=await Problem.findById(problemId);
 
-    socket.on('connect_error', (err) => {
-      console.error('Connection error:', err);
-      setError(`Connection failed: ${err.message}`);
-      setIsConnected(false);
-    });
+        // const getScore=(problem)=>{
+        // if(problem.difficulty==="hard")
+        //     return 100;
+        //  if(problem.difficulty==="easy")
+        //     return 20;
+        //  if(problem.difficulty==="medium")
+        //     return 50;
+        // }
+        
+        const problemMaxScore=points;
+        //testcases(hidden)we got 
+    
+        //have now two choices
+        //1) send code to judge0 and result when came store in database
+        //2) store in database with status code of pending and when result come from judge0 update it in database
+    
+        //second one better as if server of judge0 got error and gave no result and in submissions also it wont show even submitted by frontend hence user experience will reduce hence use second approach ie maintain the state before hand only of the submission with pending status and when judge0 or some external API give result update it hence no data loss history maintain
+    
+        const submittedResult=await ContestSubmission.create({
+          userId,
+          problemId,
+          contestId,
+          score:0,
+          code,
+          language,
+          status:"pending",
+          totalTestCases:problem.hiddenTestCases.length
+        });
+    
+        //submit code to judge0
+        const languageId=getLanguageById(language);
+        const submission=problem.hiddenTestCases.map((testcase)=>({
+        source_code:code,
+        language_id:languageId,
+        stdin:testcase.input,
+        expected_output:testcase.output
+    }))
+    // console.log(submission)
+    //submitting it 
+    const submitResult=await submitBatch(submission);
+    // console.log(submitResult)
+    //fetching tokens in an array
+    const result=submitResult.map((value)=>value.token);
+    //submitting token 
+    const testResult=await submitToken(result);
+    //update SubmittedResult of database
+    //for it see what things come as output in testResult can do console log in createProblem one or even here 
+    
+    let memory=0;
+    let status='accepted';
+    let errorMessage=null;
+    let runtime=0;
+    let testCasesPassed=0;
+    let currentSubmissionScore=0;
+    
+    function getErrorByID(id) {
+  const statuses = {
+    1: "In Queue",
+    2: "Processing",
+    4: "Wrong Answer",
+    5: "Time Limit Exceeded",
+    6: "Compilation Error",
+    7: "Runtime Error (SIGSEGV)",
+    8: "Runtime Error (SIGXFSZ)",
+    9: "Runtime Error (SIGFPE)",
+    10: "Runtime Error (SIGABRT)",
+    11: "Runtime Error (NZEC)",
+    12: "Runtime Error (Other)",
+    13: "Internal Error",
+    14: "Exec Format Error"
+  };
 
-    // Load initial code and session data
-    socket.on('load-code', (data) => {
-      console.log('Loading initial code:', data);
-      setCode(data.code || '');
-      setLanguage(data.language || 'javascript');
-      setCreatorName(data.creatorName || 'Unknown');
-      lastCodeRef.current = data.code || '';
-    });
+  return statuses[id] || "Unknown Error";
+}
+    for(const test of testResult){
+        if(test.status_id==3){
+            testCasesPassed++;
+            runtime=runtime+parseFloat(test.time);
+            memory=Math.max(memory,test.memory);
+            currentSubmissionScore = problemMaxScore;
+        }
+        else{
+               
+                status=getErrorByID(test.status_id);
+                errorMessage=test.stderr;
+                currentSubmissionScore = 0; 
+           
+          }
+    }
+    //store result in database ie update submittedResult as already have reference of object can update without using findById and upadate
+    submittedResult.status=status;
+    submittedResult.testCasesPassed=testCasesPassed;
+    submittedResult.errorMessage=errorMessage;
+    submittedResult.runtime=runtime;
+    submittedResult.score=currentSubmissionScore;
+    submittedResult.memory=memory;
+    await submittedResult.save();
+    //in user's solved problem also save problem id if already not there
+    //req.result===user information
+ let participantScore = await ContestParticipantScore.findOne({ userId, contestId });
+      if (!participantScore) {
+            // First submission for this user in this contest
+            participantScore = await ContestParticipantScore.create({
+                userId,
+                contestId,
+                totalScore: 0, // Initialize
+                problemScores: new Map(), // Initialize empty map
+            });
+        }
+         const currentProblemBestScore = participantScore.problemScores.get(problemId.toString()) || 0;
+        //for updating user net score 
+        const person=await User.findById(userId);
 
-    // Handle collaborators updates
-    socket.on('collaborators-update', (data) => {
-      console.log('Collaborators update:', data);
-      setCollaborators(data.users || []);
-    });
 
-    // Handle code changes from other users
-    socket.on('code-change', (newCode) => {
-      console.log('Received code change from another user');
-      isUpdatingFromSocket.current = true;
-      setCode(newCode);
-      lastCodeRef.current = newCode;
-      
-      // Reset the flag after a short delay
-      setTimeout(() => {
-        isUpdatingFromSocket.current = false;
-      }, 100);
-    });
-
-    // Handle language changes
-    socket.on('language-change', (newLanguage) => {
-      console.log('Language changed to:', newLanguage);
-      setLanguage(newLanguage);
-    });
-
-    // Handle user join/leave events
-    socket.on('user-joined', (user) => {
-      console.log('User joined:', user);
-    });
-
-    socket.on('user-left', (userId) => {
-      console.log('User left:', userId);
-      // Remove from typing users if they were typing
-      setTypingUsers(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(userId);
-        return newSet;
-      });
-    });
-
-    // Handle typing indicators
-    socket.on('user-typing', (data) => {
-      setTypingUsers(prev => {
-        const newSet = new Set(prev);
-        if (data.isTyping) {
-          newSet.add(data.userId);
+     
+        if (currentSubmissionScore > currentProblemBestScore) {
+            // Update if this submission is better than the previous best for this problem
+            const oldTotalScore = participantScore.totalScore;
+            person.totalScore+=currentSubmissionScore;
+            await person.save();
+            participantScore.problemScores.set(problemId.toString(), currentSubmissionScore);
+            // Recalculate total score based on the updated problemScores map
+            participantScore.totalScore = Array.from(participantScore.problemScores.values()).reduce((sum, score) => sum + score, 0);
+            
+            await participantScore.save();
+            console.log(`Updated participant score. Old total: ${oldTotalScore}, New total: ${participantScore.totalScore}`);
         } else {
-          newSet.delete(data.userId);
+            console.log("Submission score not better than current best for this problem. No change to total score.");
         }
-        return newSet;
-      });
+
+    //frontend response
+    // const accepted=(status==="accepted");
+    //if accepted true all test case accepted
+    res.status(200).json({
+     status,
+     totalTestCases:submittedResult.totalTestCases,
+     passedTestCases:submittedResult.testCasesPassed||0,
+     runtime,
+     memory
     });
-
-    // Handle errors
-    socket.on('code-error', (errorMessage) => {
-      setError(errorMessage);
-      setTimeout(() => setError(null), 5000);
-    });
-
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      socket.disconnect();
-    };
-  }, [sessionId]);
-
-  const handleEditorChange = (value) => {
-    if (isUpdatingFromSocket.current) {
-      return; // Don't emit changes that came from socket
+    
+    
     }
-    
-    setCode(value || '');
-    debouncedCodeChange(value || '');
-    
-    // Emit typing indicator
-    if (socketRef.current) {
-      socketRef.current.emit('user-typing', { isTyping: true });
-      
-      // Clear typing indicator after 2 seconds of no typing
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      typingTimeoutRef.current = setTimeout(() => {
-        if (socketRef.current) {
-          socketRef.current.emit('user-typing', { isTyping: false });
+    catch(err){
+    res.status(500).send("Internal server error:"+err);
+    }
+}
+const submissionhistory=async(req,res)=>{
+try{
+    // console.log("hello123x");
+        const userId=req.result._id;
+        const {problemId,contestId}=req.params;
+       const ans=await ContestSubmission.find({userId,problemId,contestId});
+      //  console.log("answer is "+ans);
+        if(ans.length===0){
+         res.status(200).send("No Submission Is Present");
+         return;
         }
-      }, 2000);
+         
+       res.status(200).send(ans);
+  }
+  catch(err){
+    console.log("hi");
+  res.status(500).json({
+    "message":"Internal Server error"
+  });
+  }
+}
+const result=async(req,res)=>{
+    //require contest id and user id for fetching the data
+    // console.log("hi")
+    //req to send to frontend 
+    //totalScore,rank,problemsSolved array with an extra key problemMaxScore
+    //totalNoOfParticipants
+    const userId=req.result._id;
+    const {contestId}=req.params;
+    ///finding data of contest for user
+    const contestData= await ContestParticipantScore.findOne({contestId,userId});
+    // console.log(contestData);
+    
+    //////////////////getting solved problems from id which is in key of map in an array and adding an extra key to problem obj problemMaxScore
+    // const getMaxScore=(difficulty)=>{
+    //     if(difficulty==="hard")
+    //         return 100;
+    //     if(difficulty==="medium")
+    //         return 50;
+    //     else
+    //         return 20
+    // } 
+//   console.log(contestData);
+     let solvedProblems = 0;
+
+// If contestData.problemScores is a Mongoose Map:
+const solvedIds=[]
+    for (const [problemId, score] of contestData.problemScores.entries()) {
+    if (score >= 20) {
+        solvedProblems++;
     }
+    solvedIds.push(problemId);
+}
+
+    // console.log(contestId);
+    let totalProblemsIds=await Contest.findById(contestId);
+    totalProblemsIds=totalProblemsIds.problems;
+    // console.log(totalProblemsIds)
+        const AllProblems = await Problem.find({ _id: { $in: totalProblemsIds } });
+        const solvedIdsSet = new Set(solvedIds); // Faster lookup
+
+const AllProblemsWithScore = AllProblems.map(problem => {
+  let userScore = 0;
+
+  if (solvedIdsSet.has(problem._id.toString())) {
+    if (problem.difficulty === 'hard') userScore = 100;
+    else if (problem.difficulty === 'medium') userScore = 50;
+    else userScore = 20;
+  }
+
+  return {
+    ...problem.toObject(), // Convert Mongoose document to plain object
+    userScore
   };
+});
 
-  const handleLanguageChange = (newLanguage) => {
-    setLanguage(newLanguage);
-    if (socketRef.current) {
-      socketRef.current.emit('language-change', newLanguage);
-    }
-  };
+    // console.log(AllProblems)
+    const totalProblems=AllProblems.length;
+    //getting total participants of a contest simply countDocuments with same contestId
+    const totalNoOfParticipants=await ContestParticipantScore.countDocuments({contestId});
 
-  const copyShareLink = () => {
-    const shareLink = `${window.location.origin}/code/${sessionId}`;
-    navigator.clipboard.writeText(shareLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    //getting rank of user 
+      let rank = await ContestParticipantScore.countDocuments({contestId,totalScore:{$gt:contestData.totalScore}});
+    //   console.log("rank is ",rank);
+    
+    //
 
-  const getLanguageForMonaco = (lang) => {
-    switch (lang) {
-      case 'javascript': return 'javascript';
-      case 'java': return 'java';
-      case 'cpp': return 'cpp';
-      case 'python': return 'python';
-      default: return 'javascript';
-    }
-  };
+    rank=rank+1;
+    const totalScore=contestData.totalScore;
+    res.status(200).send({rank,totalScore,solvedProblems,totalNoOfParticipants,AllProblemsWithScore,totalProblems});
 
-  return (
-    <div className="h-screen flex flex-col bg-gray-900 text-white">
-      {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold">Collaborative Code Editor</h1>
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm text-gray-300">
-                {isConnected ? 'Connected' : 'Disconnected'}
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            {/* Collaborators */}
-            <div className="flex items-center gap-2">
-              <Users size={16} />
-              <span className="text-sm">{collaborators.length} online</span>
-              <div className="flex -space-x-2">
-                {collaborators.slice(0, 5).map((user, index) => (
-                  <div
-                    key={user.socketId || index}
-                    className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold border-2 border-gray-800"
-                    title={user.firstName}
-                  >
-                    {user.firstName.charAt(0).toUpperCase()}
-                  </div>
-                ))}
-                {collaborators.length > 5 && (
-                  <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold border-2 border-gray-800">
-                    +{collaborators.length - 5}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Share button */}
-            <button
-              onClick={copyShareLink}
-              className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors"
-            >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copied!' : 'Share'}
-            </button>
-          </div>
-        </div>
-
-        {/* Error display */}
-        {error && (
-          <div className="mt-2 p-2 bg-red-900/50 border border-red-700 rounded flex items-center gap-2">
-            <AlertCircle size={16} className="text-red-400" />
-            <span className="text-red-300 text-sm">{error}</span>
-          </div>
-        )}
-
-        {/* Typing indicators */}
-        {typingUsers.size > 0 && (
-          <div className="mt-2 text-sm text-gray-400">
-            {Array.from(typingUsers).map(userId => {
-              const user = collaborators.find(c => c.id === userId);
-              return user?.firstName;
-            }).filter(Boolean).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
-          </div>
-        )}
-      </div>
-
-      {/* Editor controls */}
-      <div className="bg-gray-800 border-b border-gray-700 p-2">
-        <div className="flex items-center gap-4">
-          <select
-            value={language}
-            onChange={(e) => handleLanguageChange(e.target.value)}
-            className="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm"
-          >
-            <option value="javascript">JavaScript</option>
-            <option value="java">Java</option>
-            <option value="cpp">C++</option>
-            <option value="python">Python</option>
-          </select>
-          
-          <span className="text-sm text-gray-400">
-            Created by: {creatorName}
-          </span>
-        </div>
-      </div>
-
-      {/* Editor */}
-      <div className="flex-1">
-        <Editor
-          height="100%"
-          language={getLanguageForMonaco(language)}
-          value={code}
-          onChange={handleEditorChange}
-          onMount={(editor) => {
-            editorRef.current = editor;
-          }}
-          theme="vs-dark"
-          options={{
-            fontSize: 14,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 2,
-            insertSpaces: true,
-            wordWrap: 'on',
-            lineNumbers: 'on',
-            glyphMargin: false,
-            folding: true,
-            renderLineHighlight: 'line',
-            selectOnLineNumbers: true,
-            mouseWheelZoom: true,
-          }}
-        />
-      </div>
-    </div>
-  );
-};
-
-export default CollaborativeEditor;
+}
+module.exports={createContest,getAllContest,registerContest,getContestById,submit,submissionhistory,result}
