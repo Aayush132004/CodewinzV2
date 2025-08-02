@@ -1,258 +1,365 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod/v4";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router";
-import { useEffect, useState } from "react";
-import { loginUser } from "../../authSlice";
-import Googlelogin from "../components/Googlelogin"
-import axiosClient from "../../utils/axiosClient";
-import VoidBackground from "../components/VoidBackground";
+// AnimatedInput.jsx - Corrected component
+
+import { Eye, EyeOff } from 'lucide-react';
+
+function AnimatedInput({
+  label,
+  type = 'text',
+  placeholder,
+  register,
+  error,
+  showPasswordToggle = false,
+  icon
+}) {
+  const [isFocused, setIsFocused] = useState(false);
+  const [hasValue, setHasValue] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const inputRef = useRef(null);
+
+  const inputType = showPasswordToggle ? (showPassword ? 'text' : 'password') : type;
+
+  // Handles checking if the input has a value to control the floating label
+  useEffect(() => {
+    const input = inputRef.current;
+    if (input) {
+      const handleInput = () => setHasValue(input.value.length > 0);
+      input.addEventListener('input', handleInput);
+      return () => input.removeEventListener('input', handleInput);
+    }
+  }, []);
+
+  return (
+    <div className="relative group">
+      {/* Container for animated effects and input */}
+      <div className={`relative transition-all duration-500 rounded-2xl ${isFocused ? 'scale-[1.02]' : ''}`}>
+        
+        {/* Animated background glow */}
+        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 transition-opacity duration-500 ${isFocused ? 'opacity-100' : ''}`} />
+
+        {/* The main input container with relative positioning for elements */}
+        <div className="relative z-10">
+          
+          {/* Floating label */}
+          <label className={`absolute transition-all duration-300 pointer-events-none z-20 transform ${
+            isFocused || hasValue
+              ? 'top-2 text-xs text-blue-400 font-semibold'
+              : 'top-1/2 text-base -translate-y-1/2 text-gray-400'
+          } ${icon ? 'left-12' : 'left-4'}`}>
+            {label}
+          </label>
+          
+          {/* Icon, positioned to the left */}
+          {icon && (
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-20">
+              {icon}
+            </div>
+          )}
+          
+          {/* Main input field that is now guaranteed to be on top */}
+          <input
+            ref={inputRef}
+            {...register}
+            type={inputType}
+            placeholder={isFocused && !hasValue ? placeholder : ''}
+            className={`w-full ${icon ? 'pl-12' : 'pl-4'} ${showPasswordToggle ? 'pr-12' : 'pr-4'} pt-6 pb-2 bg-slate-800/50 border-2 rounded-2xl transition-all duration-300 text-white placeholder-gray-500 backdrop-blur-sm focus:outline-none relative z-10 ${
+              error
+                ? 'border-red-500/50 focus:border-red-400'
+                : isFocused
+                  ? 'border-blue-500/50 focus:border-blue-400'
+                  : 'border-slate-600/30 hover:border-slate-500/50'
+            }`}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+          />
+          
+          {/* Password toggle button */}
+          {showPasswordToggle && (
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-400 transition-colors duration-200 z-20"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          )}
+        </div>
+        
+        {/* Animated border */}
+        <div className={`absolute inset-0 rounded-2xl border-2 border-transparent bg-gradient-to-r from-blue-500 to-purple-500 opacity-0 transition-opacity duration-300 ${isFocused ? 'opacity-100' : ''}`} style={{ mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', maskComposite: 'xor' }} />
+      </div>
+      
+      {/* Error message */}
+      {error && (
+        <div className="mt-2 text-red-400 text-sm font-medium animate-pulse">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Login.jsx - Your main component, now using the corrected AnimatedInput
+import React, { useState, useRef, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router';
+import { Mail, Lock, Sparkles, Shield, Zap, ArrowRight } from 'lucide-react';
+import Googlelogin from '../components/Googlelogin';
+import axiosClient from '../../utils/axiosClient';
+import AuthBackground from '../components/AuthBackground';
+import AnimatedButton from '../components/AnimatedButton';
+import FloatingCard from '../components/FloatingCard';
+import { loginUser } from '../../authSlice';
+
+// The validation schema is still Zod, which is a JS library
 const signupSchema = z.object({
-  emailId: z.email("Invalid EmailId"),
-  password: z.string().min(8, "Password Should Contain atleast 8 characters"),
+  emailId: z.string().email('Invalid EmailId'),
+  password: z.string().min(8, 'Password Should Contain atleast 8 characters'),
 });
-
-
 
 function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [mailerror,setMailerror]=useState(null);
-  const [timer,setTimer]=useState(0);
+  const [mailerror, setMailerror] = useState(null);
+  const [timer, setTimer] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
 
   const { isAuthenticated, loading, error } = useSelector(
     (state) => state.auth
   );
 
-  //once login redirecting to home
   useEffect(() => {
-    if (isAuthenticated) navigate("/");
-  }, [isAuthenticated]);
+    setIsVisible(true);
+  }, []);
 
-  //on submit sending data to server
+  useEffect(() => {
+    if (isAuthenticated) navigate('/');
+  }, [isAuthenticated, navigate]);
+
   const onSubmit = (data) => {
     dispatch(loginUser(data));
   };
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({ resolver: zodResolver(signupSchema) });
-  //for mananging password eye svg state ke through input field ka type change krunga on button click
-  const [showPassword, setShowPassword] = useState(false);
-  
+
+  const handleMailLogin = async (e) => {
+    e.preventDefault();
+    const data = e.target[0].value;
+    try {
+      setTimer(60);
+      const interval = setInterval(() => {
+        setTimer((prev) => {
+          if (prev === 0) {
+            clearInterval(interval);
+            return 0;
+          } else {
+            return prev - 1;
+          }
+        });
+      }, 1000);
+
+      const res = await axiosClient.post('/user/mailLogin', { emailId: data });
+      console.log(res);
+    } catch (err) {
+      console.log(err);
+      setMailerror(err.response.data.message);
+    }
+  };
+
   return (
     <>
-     <VoidBackground/>
-      <div className="min-h-screen  bg-gradient-to-br from-[#0f172a] to-[#1e293b] flex items-center justify-center p-4 font-sans text-white">
-        <div className="w-full max-w-md z-10 relative bg-[#0f172a] rounded-2xl shadow-2xl p-8 space-y-6 border border-blue-800">
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <h1 className="text-5xl font-black flex justify-center items-center  text-blue-400 tracking-tight">
-              
-              <img src="/logo.png" className="h-40 object-cover"/>
-              {/* <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse">
-                CodeWinz  
-              </span> */}
-             
-            </h1>
-            <p className="text-base text-blue-100">
-              Welcome back! Please login to your account.
-            </p>
-          </div>
+      <AuthBackground />
+      <div className="min-h-screen flex items-center justify-center p-4 font-sans text-white relative overflow-hidden">
+        {/* Floating elements */}
+        <div className="absolute inset-0 pointer-events-none z-10">
+          <div className="absolute top-20 left-20 w-2 h-2 bg-blue-400 rounded-full animate-pulse opacity-60" />
+          <div className="absolute top-40 right-32 w-1 h-1 bg-purple-400 rounded-full animate-ping opacity-40" />
+          <div className="absolute bottom-32 left-40 w-3 h-3 bg-cyan-400 rounded-full animate-bounce opacity-30" />
+          <div className="absolute bottom-20 right-20 w-1 h-1 bg-pink-400 rounded-full animate-pulse opacity-50" />
+        </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            {/* Email Input */}
-            <div className="form-control w-full">
-              <label className="label">
-                <span className="label-text text-white">Email ID</span>
-              </label>
-              <input
-                {...register("emailId")}
-                placeholder="you@codewinz.com"
-                className="input input-bordered w-full focus:input-primary transition-all duration-300 bg-[#1e293b] border-blue-700 text-white placeholder-blue-300"
-              />
-              {errors.emailId && (
-                <span className="text-red-500 text-sm mt-2">
-                  {errors.emailId.message}
-                </span>
-              )}
-            </div>
+        <div className="w-full max-w-md z-20 relative">
+          <FloatingCard className={`transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <div className="p-10 space-y-8">
+              {/* Header */}
+              <div className="text-center space-y-6">
+                <div className="relative inline-block">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur-xl opacity-30 animate-pulse" />
+                  <img
+                    src="/logo.png"
+                    className="h-32 object-cover relative z-10 hover:scale-110 transition-transform duration-500"
+                    alt="CodeWinz Logo"
+                  />
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-full border border-blue-500/30 backdrop-blur-sm">
+                    <Shield className="w-4 h-4 text-blue-400 mr-2" />
+                    <span className="text-sm font-medium text-blue-300">Secure Login</span>
+                    <Sparkles className="w-4 h-4 text-purple-400 ml-2 animate-pulse" />
+                  </div>
+                  
+                  <h1 className="text-4xl font-black bg-gradient-to-r from-white via-blue-200 to-purple-300 bg-clip-text text-transparent">
+                    Welcome Back
+                  </h1>
+                  <p className="text-gray-400 text-lg leading-relaxed">
+                    Continue your journey to coding excellence
+                  </p>
+                </div>
+              </div>
 
-            {/* Password Input */}
+              <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+                <AnimatedInput
+                 
+                  type="email"
+                  placeholder="Enter your email"
+                  register={register('emailId')}
+                  error={errors.emailId?.message}
+                  icon={<Mail size={20} />}
+                />
 
-            <div className="form-control w-full relative">
-              <label className="label">
-                <span className="label-text text-white">Password</span>
-              </label>
-              <div className="relative">
-                 <input
-                {...register("password")}
-                placeholder={showPassword ? "Password" : "••••••••"}
-                type={showPassword ? "text" : "password"}
-                className="input input-bordered w-full pr-12 focus:input-primary transition-all duration-300 bg-[#1e293b] border-blue-700 text-white placeholder-blue-300"
-              />
-              <div
-                className="absolute  z-1 inset-y-0 right-3 top-2 flex items-center cursor-pointer text-blue-300 hover:text-blue-500 transition"
-                onClick={() => setShowPassword((prev) => !prev)}
-              >
-                {showPassword ? (
-                  // Eye Open Icon
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M2.458 12C3.732 7.943 7.522 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.478 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
-                ) : (
-                  // Eye Off Icon
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.961 9.961 0 012.776-4.419M9.88 9.88a3 3 0 104.24 4.24M3 3l18 18"
-                    />
-                  </svg>
+                <AnimatedInput
+                 
+                  type="password"
+                  placeholder="Enter your password"
+                  register={register('password')}
+                  error={errors.password?.message}
+                  showPasswordToggle={true}
+                  icon={<Lock size={20} />}
+                />
+
+                <AnimatedButton
+                  type="submit"
+                  loading={loading}
+                  disabled={loading}
+                  variant="primary"
+                  size="lg"
+                  className="w-full group"
+                >
+                  <span className="flex items-center justify-center space-x-2">
+                    <span>Sign In</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+                  </span>
+                </AnimatedButton>
+
+                {error && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-center animate-pulse">
+                    {error}
+                  </div>
                 )}
-              </div>
-              </div>
-             
-              {/* Toggle Eye Icon */}
+              </form>
 
-              {errors.password && (
-                <span className="text-red-500 text-sm mt-2">
-                  {errors.password.message}
-                </span>
-              )}
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-600/50" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-slate-900/50 text-gray-400 backdrop-blur-sm rounded-full">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              {/* Social Logins */}
+              <div className="flex justify-center items-center gap-4">
+                <Googlelogin />
+                
+                <button
+                  disabled={loading}
+                  onClick={() => document.getElementById('my_modal_3').showModal()}
+                  className="group relative p-4 bg-slate-800/50 hover:bg-red-500/20 border border-slate-600/50 hover:border-red-500/50 rounded-2xl transition-all duration-300 hover:scale-110 backdrop-blur-sm"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-pink-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <Mail className="w-6 h-6 text-gray-400 group-hover:text-red-400 transition-colors duration-300 relative z-10" />
+                </button>
+
+                {/* Enhanced Modal */}
+                <dialog id="my_modal_3" className="modal">
+                  <div className="modal-box bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-gray-400 hover:text-white"
+                      onClick={() => document.getElementById('my_modal_3').close()}
+                    >
+                      ✕
+                    </button>
+
+                    <div className="space-y-6 pt-4">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Mail className="w-8 h-8 text-white" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-2">Magic Link Login</h3>
+                        <p className="text-gray-400">Enter your registered email to receive a login link</p>
+                      </div>
+
+                      <form onSubmit={handleMailLogin} className="space-y-4">
+                        <AnimatedInput
+                          label="Email Address"
+                          type="email"
+                          placeholder="Enter your registered email"
+                          register={{ required: true }}
+                          icon={<Mail size={20} />}
+                        />
+                        
+                        {mailerror && (
+                          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                            {mailerror}
+                          </div>
+                        )}
+                        
+                        <AnimatedButton
+                          type="submit"
+                          disabled={timer > 0}
+                          variant="primary"
+                          size="lg"
+                          className="w-full"
+                        >
+                          {timer === 0 ? 'Send Magic Link' : `Resend in ${timer}s`}
+                        </AnimatedButton>
+                      </form>
+                    </div>
+                  </div>
+                </dialog>
+              </div>
+
+              {/* Sign Up Link */}
+              <div className="text-center space-y-4">
+                <p className="text-gray-400">
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => navigate('/signup')}
+                    className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-300 hover:underline"
+                  >
+                    Create Account
+                  </button>
+                </p>
+                
+                {/* Trust indicators */}
+                <div className="flex items-center justify-center space-x-6 text-xs text-gray-500">
+                  <div className="flex items-center space-x-1">
+                    <Shield className="w-3 h-3" />
+                    <span>Secure</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Zap className="w-3 h-3" />
+                    <span>Fast</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Trusted</span>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-center">
-            <button
-              type="submit"
-              className={` ${loading?'loading loading-bars loading-sm text-accent':'btn btn-primary btn-block text-lg bg-blue-600 hover:bg-blue-700 text-white border-none transition-transform duration-200 ease-in-out hover:scale-105 active:scale-100'}`} disabled={loading}
-            >
-              Login
-            </button>
-            </div>
-            
-          </form>
-
-          {/* Divider */}
-          <div className="divider text-blue-200 my-6">OR CONTINUE WITH</div>
-
-          {/* Social Logins */}
-          <div className="flex justify-center items-center gap-4">
-         
-
-            <Googlelogin/>
-            {/* <button className="btn btn-circle btn-outline border-blue-500 hover:bg-blue-600 hover:border-blue-600 transition-all duration-300"> */}
-              {/* Mail */}
-              <button  disabled={loading} onClick={()=>document.getElementById('my_modal_3').showModal()} className="btn btn-circle btn-outline border-blue-500 hover:bg-red-500 hover:border-red-500 transition-all duration-300">
-              <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 4h16a2 2 0 012 2v1.5l-10 6.5-10-6.5V6a2 2 0 012-2zm0 4.75l10 6.5 10-6.5V18a2 2 0 01-2 2H6a2 2 0 01-2-2V8.75z" />
-              </svg>
-              </button>
-               <dialog id="my_modal_3" className="modal">
-  <div className="modal-box">
-    <button
-      type="button"
-      className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-      onClick={() => document.getElementById("my_modal_3").close()}
-    >
-      ✕
-    </button>
-
-    <p className="mb-4">Enter Your Registered Gmail ID</p>
-
-    <form onSubmit={async (e)=>{
-      e.preventDefault();
-      // alert(e.target[0].value);
-      // console.log(e);
-      const data=e.target[0].value;
-    try{
-         setTimer(60);
-     const interval= setInterval(() => {
-      setTimer((prev)=>{
-        if(prev===0){
-          clearInterval(interval);
-          return 0;
-        }
-       else{
-        return prev-1;
-       }
-      });
-     
-        
-    }, 1000);
-    
-     const res= await axiosClient.post("/user/mailLogin",{emailId:data});
-     console.log(res);
-    }
-    catch(err){
-      console.log(err);
-       setMailerror(err.response.data.message);
-    }
-
-     
-      //on submitting send to backend there check if already registered or not 0
-    }}>
-      <input
-        type="email" required
-        className="input input-bordered w-full mb-4"
-        placeholder="Enter your Gmail ID"
-      />
-      <div className="flex flex-col">
-      {mailerror&&<span className="text-red-500 text-sm mt-2">
-                  {mailerror}
-        </span>}
-      <button type="submit" disabled={timer===0?false:true} className="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white ">{timer===0?'Send Link':'Link Send!You Can Try Again in '+timer+'sec'}</button>
-      </div>
-    </form>
-  </div>
-</dialog>
-
-            
-          
-          </div>
-
-          {/* Sign Up Link */}
-          <p className="text-center text-blue-100 mt-8 ">
-            Don’t have an account?{" "}
-            <div className="flex flex-col">
-            <button onClick={()=>{navigate('/signup')}} className="link link-info font-semibold">
-              Sign up
-            </button>
-            {error&&(
-                <span className="text-red-500 text-sm mt-2">
-                  {error}
-                </span>
-               
-              )}
-              </div>
-          </p>
+          </FloatingCard>
         </div>
       </div>
     </>
